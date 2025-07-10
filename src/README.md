@@ -18,17 +18,20 @@ To run the app locally in VSCode for testing, follow these steps:
    - Vite will display the URL in the terminal
    - You can Ctrl+click the URL in the terminal to open it directly
 
-## Configuration for Testing
+## Configuration for Real Azure Services
 
-Since the app requires Azure services, you'll need to:
+The app now supports both real Azure services and fallback functionality:
 
 1. **Configure Azure Speech-to-Text settings** in the app's settings panel:
    - Endpoint URL (e.g., https://eastus.stt.speech.microsoft.com)
    - Subscription key
+   - Use the "Test Connection" button to validate your settings
 
 2. **Configure Azure OpenAI settings** in the app's settings panel:
    - Endpoint URL (e.g., https://your-resource.openai.azure.com)
    - Subscription key
+   - Deployment name (e.g., gpt-4)
+   - Use the "Test Connection" button to validate your settings
 
 3. **Choose audio source**:
    - Microphone (requires browser permissions)
@@ -39,21 +42,24 @@ Since the app requires Azure services, you'll need to:
 When testing the recording feature:
 
 1. Make sure your browser has permission to access your microphone
-2. Click the "Record" button to start/stop recording
-3. The app uses a mock implementation for demo purposes (see AzureSpeechService.ts)
-4. In the demo mode, it will generate sample transcript segments every few seconds
+2. Click the "Listen" button to start/stop recording
+3. **Real Speech Recognition**: The app uses the Web Speech API as a fallback for live speech recognition
+4. **Real Azure Integration**: When properly configured, the app will use real Azure OpenAI for summaries and Q&A
 
 ## Troubleshooting
 
 If the recording doesn't work:
 
 1. Check browser console for errors (F12 or right-click > Inspect > Console)
-2. Ensure Azure credentials are entered correctly in settings
+2. Ensure Azure credentials are entered correctly in settings and test connections
 3. Verify microphone permissions in your browser settings
-4. If testing with real Azure services, check your subscription status
+4. Check that Web Speech API is supported in your browser (Chrome, Edge recommended)
+5. If testing with real Azure services, check your subscription status and quota
 
 ## Development Notes
 
-- The app uses a mock implementation of Azure services for demo purposes
-- The `useKV` hook is simulated using localStorage in this environment
-- For real deployment, you would need valid Azure service credentials
+- **Speech Recognition**: Uses Web Speech API for live transcription
+- **Azure Integration**: Real Azure OpenAI API calls for summaries and Q&A when configured
+- **Connection Testing**: Built-in connection testing for both STT and OpenAI services
+- **Dark Mode**: Toggle available in the header, persists across sessions
+- The `useKV` hook uses localStorage for data persistence

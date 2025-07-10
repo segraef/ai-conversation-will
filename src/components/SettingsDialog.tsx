@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSettings } from '@/contexts/types';
-import { Gear, Check, X, CloudCheck } from '@phosphor-icons/react';
+import { Gear, Check, X, CloudCheck, Play } from '@phosphor-icons/react';
 import { useState, useEffect } from 'react';
 import { ConnectionStatus } from '@/contexts/types';
+import { toast } from 'sonner';
 
 interface SettingsDialogProps {
   settings: AppSettings;
@@ -17,20 +18,22 @@ interface SettingsDialogProps {
   openaiStatus: ConnectionStatus;
 }
 
-export function SettingsDialog({ 
-  settings, 
+export function SettingsDialog({
+  settings,
   onUpdateSettings,
   sttStatus,
   openaiStatus
 }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
-  
+  const [testingSTT, setTestingSTT] = useState(false);
+  const [testingOpenAI, setTestingOpenAI] = useState(false);
+
   // Update local settings when props change
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
-  
+
   // Extract region from endpoint URL
   useEffect(() => {
     if (localSettings.stt.endpoint) {
@@ -52,20 +55,93 @@ export function SettingsDialog({
       }
     }
   }, [localSettings.stt.endpoint]);
-  
+
   // Apply settings changes
   const applySettings = () => {
     onUpdateSettings(localSettings);
     setIsOpen(false);
   };
-  
+
+  // Test STT connection
+  const testSTTConnection = async () => {
+    if (!localSettings.stt.endpoint || !localSettings.stt.subscriptionKey) {
+      toast.error('Please enter both endpoint URL and subscription key');
+      return;
+    }
+
+    setTestingSTT(true);
+    try {
+      // Test the Speech-to-Text connection
+      const response = await fetch(`${localSettings.stt.endpoint}/speech/recognition/conversation/cognitiveservices/v1`, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': localSettings.stt.subscriptionKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          config: {
+            encoding: 'LINEAR16',
+            sampleRateHertz: 16000,
+            languageCode: 'en-US'
+          }
+        }),
+      });
+
+      if (response.ok || response.status === 400) { // 400 might be expected for test request
+        toast.success('STT connection successful!');
+      } else {
+        toast.error(`STT connection failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('STT connection test failed:', error);
+      toast.error('STT connection failed. Please check your settings.');
+    } finally {
+      setTestingSTT(false);
+    }
+  };
+
+  // Test OpenAI connection
+  const testOpenAIConnection = async () => {
+    if (!localSettings.openai.endpoint || !localSettings.openai.subscriptionKey) {
+      toast.error('Please enter both endpoint URL and subscription key');
+      return;
+    }
+
+    setTestingOpenAI(true);
+    try {
+      // Test the OpenAI connection with a simple request
+      const response = await fetch(`${localSettings.openai.endpoint}/openai/deployments/${localSettings.openai.deploymentName}/chat/completions?api-version=2024-02-15-preview`, {
+        method: 'POST',
+        headers: {
+          'api-key': localSettings.openai.subscriptionKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 5,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('OpenAI connection successful!');
+      } else {
+        toast.error(`OpenAI connection failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('OpenAI connection test failed:', error);
+      toast.error('OpenAI connection failed. Please check your settings.');
+    } finally {
+      setTestingOpenAI(false);
+    }
+  };
+
   // Reset local settings when dialog is opened
   useEffect(() => {
     if (isOpen) {
       setLocalSettings(settings);
     }
   }, [isOpen, settings]);
-  
+
   // Render connection status icon
   const renderStatusIcon = (status: ConnectionStatus) => {
     switch (status) {
@@ -79,7 +155,7 @@ export function SettingsDialog({
         return <div className="h-5 w-5 rounded-full bg-muted" />;
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -91,35 +167,19 @@ export function SettingsDialog({
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
-        
+
         <Tabs defaultValue="general" className="mt-4">
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="stt">Speech to Text</TabsTrigger>
             <TabsTrigger value="openai">OpenAI</TabsTrigger>
           </TabsList>
-          
+
           {/* General Settings */}
           <TabsContent value="general" className="space-y-4">
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="dark-mode">Dark Mode</Label>
-                <Switch 
-                  id="dark-mode" 
-                  checked={localSettings.darkMode}
-                  onCheckedChange={(checked) => {
-                    setLocalSettings({
-                      ...localSettings,
-                      darkMode: checked
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
               <Label htmlFor="audio-source">Audio Source</Label>
-              <Select 
+              <Select
                 value={localSettings.audio.source}
                 onValueChange={(value: 'microphone' | 'system') => {
                   setLocalSettings({
@@ -143,10 +203,10 @@ export function SettingsDialog({
                 Note: System audio capture may be limited by browser capabilities.
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="chunk-interval">Chunk Interval (minutes)</Label>
-              <Input 
+              <Input
                 id="chunk-interval"
                 type="number"
                 min="1"
@@ -170,7 +230,7 @@ export function SettingsDialog({
               </p>
             </div>
           </TabsContent>
-          
+
           {/* Speech to Text Settings */}
           <TabsContent value="stt" className="space-y-4">
             <div className="flex items-center gap-2">
@@ -178,10 +238,10 @@ export function SettingsDialog({
               {renderStatusIcon(sttStatus)}
               <span className="text-sm capitalize">{sttStatus}</span>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="stt-endpoint">Endpoint URL</Label>
-              <Input 
+              <Input
                 id="stt-endpoint"
                 placeholder="https://[region].stt.speech.microsoft.com"
                 value={localSettings.stt.endpoint}
@@ -199,10 +259,10 @@ export function SettingsDialog({
                 The region will be auto-detected from the endpoint URL.
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="stt-key">Subscription Key</Label>
-              <Input 
+              <Input
                 id="stt-key"
                 type="password"
                 placeholder="Enter your Azure Speech subscription key"
@@ -218,18 +278,39 @@ export function SettingsDialog({
                 }}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="stt-region">Region</Label>
-              <Input 
+              <Input
                 id="stt-region"
                 placeholder="Auto-detected from endpoint URL"
                 value={localSettings.stt.region}
                 disabled
               />
             </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={testSTTConnection}
+                disabled={testingSTT || !localSettings.stt.endpoint || !localSettings.stt.subscriptionKey}
+                variant="outline"
+                size="sm"
+              >
+                {testingSTT ? (
+                  <>
+                    <CloudCheck className="h-4 w-4 mr-2 animate-pulse" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+            </div>
           </TabsContent>
-          
+
           {/* OpenAI Settings */}
           <TabsContent value="openai" className="space-y-4">
             <div className="flex items-center gap-2">
@@ -237,10 +318,10 @@ export function SettingsDialog({
               {renderStatusIcon(openaiStatus)}
               <span className="text-sm capitalize">{openaiStatus}</span>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="openai-endpoint">Endpoint URL</Label>
-              <Input 
+              <Input
                 id="openai-endpoint"
                 placeholder="https://[resource-name].openai.azure.com"
                 value={localSettings.openai.endpoint}
@@ -255,10 +336,10 @@ export function SettingsDialog({
                 }}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="openai-key">Subscription Key</Label>
-              <Input 
+              <Input
                 id="openai-key"
                 type="password"
                 placeholder="Enter your Azure OpenAI subscription key"
@@ -274,10 +355,10 @@ export function SettingsDialog({
                 }}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="openai-deployment">Deployment Name</Label>
-              <Input 
+              <Input
                 id="openai-deployment"
                 placeholder="e.g., gpt-4"
                 value={localSettings.openai.deploymentName}
@@ -292,9 +373,30 @@ export function SettingsDialog({
                 }}
               />
             </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={testOpenAIConnection}
+                disabled={testingOpenAI || !localSettings.openai.endpoint || !localSettings.openai.subscriptionKey || !localSettings.openai.deploymentName}
+                variant="outline"
+                size="sm"
+              >
+                {testingOpenAI ? (
+                  <>
+                    <CloudCheck className="h-4 w-4 mr-2 animate-pulse" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
-        
+
         <div className="flex justify-end mt-4">
           <Button onClick={applySettings}>Save Changes</Button>
         </div>

@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SummaryChunk } from '@/types';
+import { SummaryChunk } from '@/contexts/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { CaretDown } from '@phosphor-icons/react';
@@ -12,7 +12,7 @@ interface SummariesViewProps {
 
 export function SummariesView({ summaries }: SummariesViewProps) {
   const [openSummaryId, setOpenSummaryId] = useState<string | null>(null);
-  
+
   const toggleSummary = (id: string) => {
     if (openSummaryId === id) {
       setOpenSummaryId(null);
@@ -20,13 +20,13 @@ export function SummariesView({ summaries }: SummariesViewProps) {
       setOpenSummaryId(id);
     }
   };
-  
+
   const formatTimeRange = (start: number, end: number) => {
     const startTime = new Date(start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const endTime = new Date(end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return `${startTime} - ${endTime}`;
   };
-  
+
   return (
     <Card className="flex-1 overflow-hidden">
       <CardContent className="p-0">
@@ -38,20 +38,20 @@ export function SummariesView({ summaries }: SummariesViewProps) {
               </div>
             ) : (
               summaries.map((summary) => (
-                <Collapsible 
-                  key={summary.id} 
+                <Collapsible
+                  key={summary.id}
                   open={openSummaryId === summary.id}
                   onOpenChange={() => toggleSummary(summary.id)}
                   className="border rounded-md"
                 >
                   <CollapsibleTrigger asChild>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="flex justify-between w-full p-4 h-auto"
                     >
                       <span>{formatTimeRange(summary.startTime, summary.endTime)}</span>
-                      <CaretDown 
-                        className={`transition-transform ${openSummaryId === summary.id ? 'rotate-180' : ''}`} 
+                      <CaretDown
+                        className={`transition-transform ${openSummaryId === summary.id ? 'rotate-180' : ''}`}
                       />
                     </Button>
                   </CollapsibleTrigger>

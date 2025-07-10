@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { QAPair } from '@/types';
+import { QAPair } from '@/contexts/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PaperPlaneRight } from '@phosphor-icons/react';
@@ -14,12 +14,12 @@ interface QAViewProps {
 export function QAView({ qaList, onAskQuestion }: QAViewProps) {
   const [newQuestion, setNewQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newQuestion.trim()) return;
-    
+
     setIsSubmitting(true);
     try {
       await onAskQuestion(newQuestion.trim());
@@ -30,7 +30,7 @@ export function QAView({ qaList, onAskQuestion }: QAViewProps) {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <Card className="flex-1 overflow-hidden flex flex-col">
       <CardContent className="p-0 flex-1 flex flex-col">
@@ -54,7 +54,7 @@ export function QAView({ qaList, onAskQuestion }: QAViewProps) {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start gap-3 pl-10">
                     <div className="bg-accent text-accent-foreground rounded-full p-1 mt-0.5">
                       <span className="text-xs font-medium px-1">A</span>
@@ -68,7 +68,7 @@ export function QAView({ qaList, onAskQuestion }: QAViewProps) {
             )}
           </div>
         </ScrollArea>
-        
+
         <div className="p-4 border-t mt-auto">
           <form onSubmit={handleSubmit} className="flex gap-2">
             <Input
@@ -78,8 +78,8 @@ export function QAView({ qaList, onAskQuestion }: QAViewProps) {
               disabled={isSubmitting}
               className="flex-1"
             />
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={!newQuestion.trim() || isSubmitting}
             >
               <PaperPlaneRight className="mr-2" />
