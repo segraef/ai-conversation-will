@@ -2,6 +2,12 @@
 
 A real-time AI conversation assistant that transcribes, summarizes, and answers questions from audio input using Azure Speech-to-Text and Azure OpenAI services.
 
+## 🌐 Live Demo
+
+**Try it now: [https://segraef.github.io/ai-conversation-will/](https://segraef.github.io/ai-conversation-will/)**
+
+*Note: You'll need your own Azure Speech and OpenAI service credentials to use the application.*
+
 ## ✨ Features
 
 - **🎤 Real-time Transcription**: Convert speech to text using Azure Speech SDK with continuous recognition
@@ -58,6 +64,25 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## 🚀 Deployment
+
+### GitHub Pages (Live Demo)
+
+The app is automatically deployed to GitHub Pages at: [https://segraef.github.io/ai-conversation-will/](https://segraef.github.io/ai-conversation-will/)
+
+To deploy updates:
+```bash
+npm run deploy
+```
+
+This will build the project and deploy it to the `gh-pages` branch automatically.
+
+### Other Deployment Options
+
+- **Netlify**: Connect your GitHub repo for auto-deployment
+- **Vercel**: Import your GitHub project for instant deployment  
+- **Azure Static Web Apps**: Deploy directly to Azure
 
 ## ⚙️ Configuration
 
