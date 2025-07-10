@@ -1,4 +1,5 @@
-import { AzureOpenAIConfig, TranscriptSegment, SummaryChunk, QAPair } from '../types';
+import { TranscriptSegment } from '../contexts/types';
+import { AzureOpenAIConfig } from '../types';
 
 // This is a stub implementation of the Azure OpenAI service
 // In a real implementation, this would use the Azure SDK

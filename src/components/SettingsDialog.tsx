@@ -5,10 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AppSettings } from '@/types';
+import { AppSettings } from '@/contexts/types';
 import { Gear, Check, X, CloudCheck } from '@phosphor-icons/react';
 import { useState, useEffect } from 'react';
-import { ConnectionStatus } from '@/types';
+import { ConnectionStatus } from '@/contexts/types';
 
 interface SettingsDialogProps {
   settings: AppSettings;
@@ -120,11 +120,14 @@ export function SettingsDialog({
             <div className="space-y-2">
               <Label htmlFor="audio-source">Audio Source</Label>
               <Select 
-                value={localSettings.audioSource}
+                value={localSettings.audio.source}
                 onValueChange={(value: 'microphone' | 'system') => {
                   setLocalSettings({
                     ...localSettings,
-                    audioSource: value
+                    audio: {
+                      ...localSettings.audio,
+                      source: value
+                    }
                   });
                 }}
               >
@@ -148,13 +151,16 @@ export function SettingsDialog({
                 type="number"
                 min="1"
                 max="60"
-                value={localSettings.chunkInterval}
+                value={localSettings.audio.chunkIntervalMinutes}
                 onChange={(e) => {
                   const value = parseInt(e.target.value);
                   if (!isNaN(value) && value > 0) {
                     setLocalSettings({
                       ...localSettings,
-                      chunkInterval: value
+                      audio: {
+                        ...localSettings.audio,
+                        chunkIntervalMinutes: value
+                      }
                     });
                   }
                 }}

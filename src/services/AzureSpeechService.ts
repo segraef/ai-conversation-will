@@ -1,4 +1,5 @@
-import { AzureSTTConfig, TranscriptSegment } from '../types';
+import { TranscriptSegment } from '../contexts/types';
+import { AzureSTTConfig } from '../types';
 
 // This is a stub implementation of the Azure Speech-to-Text service
 // In a real implementation, this would use the Azure SDK
@@ -49,6 +50,7 @@ export class AzureSpeechService {
           text: mockTexts[randomIndex],
           speakerId: randomSpeaker,
           timestamp: Date.now(),
+          confidence: 0.9,
           isQuestion
         };
         
