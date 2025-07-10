@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { TranscriptSegment } from '@/types';
+import { TranscriptSegment } from '@/contexts/types';
 
 interface TranscriptViewProps {
   segments: TranscriptSegment[];

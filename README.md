@@ -2,52 +2,141 @@
 
 A real-time AI conversation assistant that transcribes, summarizes, and answers questions from audio input using Azure Speech-to-Text and Azure OpenAI services.
 
-## Features
+## ✨ Features
 
-- **Audio Recording**: Capture audio from microphone or system audio (browser limitations may apply)
-- **Real-time Transcription**: Convert speech to text with speaker identification using Azure Speech-to-Text
-- **Automatic Summarization**: Generate concise summaries of conversation chunks
-- **Question Detection**: Automatically identify and answer questions in the conversation
-- **Manual Q&A**: Ask questions directly and get AI-powered answers
-- **Settings Management**: Configure Azure services and app preferences
-- **Dark Mode**: Toggle between light and dark themes
+- **🎤 Real-time Transcription**: Convert speech to text using Azure Speech SDK with continuous recognition
+- **📝 Automatic Summarization**: Generate concise summaries of conversation chunks using Azure OpenAI
+- **❓ Intelligent Q&A**: Automatically detect questions in conversation and provide AI-powered answers
+- **💬 Manual Questions**: Ask any question and get contextual or general knowledge answers
+- **⚙️ Connection Testing**: Test Azure service connections before starting
+- **🌙 Dark Mode**: Beautiful dark/light theme toggle
+- **💾 Persistent Settings**: Your settings and connection status are saved locally
+- **📱 Responsive Design**: Works on desktop and mobile devices
 
-## Technical Implementation
+## 🏗️ Technical Implementation
 
-This application is built with:
+Built with modern web technologies:
 
-- React for the UI components
-- TypeScript for type safety
-- Tailwind CSS for styling
-- shadcn/ui for UI components
-- Azure Speech-to-Text API for transcription
-- Azure OpenAI API for summarization and question answering
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Speech Recognition**: Azure Speech SDK (microsoft-cognitiveservices-speech-sdk)
+- **AI Services**: Azure OpenAI REST API
+- **State Management**: React Context + localStorage persistence
+- **Real-time Features**: Continuous speech recognition with event handling
 
-## Getting Started
+## 🚀 Getting Started
 
-To use this application, you need:
+### Prerequisites
 
-1. An Azure subscription with Speech-to-Text service
-2. An Azure OpenAI service deployment
-3. Configure the application with your service endpoints and subscription keys
+You need an Azure subscription with:
+1. **Azure Speech Service** - for speech-to-text transcription
+2. **Azure OpenAI Service** - for summaries and question answering
 
-## Configuration
+### Installation
 
-Set up your Azure services in the Settings panel:
+1. Clone the repository:
+```bash
+git clone https://github.com/segraef/ai-conversation-will.git
+cd ai-conversation-will
+```
 
-- **Azure Speech-to-Text**:
-  - Endpoint URL (e.g., https://eastus.stt.speech.microsoft.com)
-  - Subscription key
-  
-- **Azure OpenAI**:
-  - Endpoint URL (e.g., https://your-resource.openai.azure.com)
-  - Subscription key
-  - Deployment name (e.g., gpt-4)
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Usage
+3. Start the development server:
+```bash
+npm run dev
+```
 
-1. Configure your Azure services in the Settings panel
-2. Click the microphone button to start recording
+4. Open your browser to `http://localhost:5173`
+
+### Production Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## ⚙️ Configuration
+
+Configure your Azure services in the Settings panel:
+
+### Azure Speech-to-Text
+- **Region**: Your Azure region (e.g., `eastus`, `westeurope`)
+- **Subscription Key**: Your Speech service key
+- **Endpoint**: Speech service endpoint (e.g., `https://eastus.api.cognitive.microsoft.com/`)
+
+### Azure OpenAI
+- **Endpoint**: Your OpenAI resource endpoint (e.g., `https://your-resource.openai.azure.com`)
+- **Subscription Key**: Your OpenAI service key  
+- **Deployment Name**: Your model deployment name (e.g., `gpt-4`, `gpt-35-turbo`)
+
+## 📖 Usage
+
+1. **Setup**: Configure your Azure services in Settings and test connections
+2. **Start Recording**: Click the "Listen" button to begin audio capture
+3. **View Transcript**: See real-time speech-to-text in the Live Transcript tab
+4. **Check Summaries**: Automatic summaries appear in the Summaries tab
+5. **Ask Questions**: 
+   - Questions detected in speech are automatically answered
+   - Manually ask questions in the Q&A tab
+6. **Export Data**: All data persists locally and can be exported
+
+## 🎯 Question Types Supported
+
+- **Conversation Questions**: "What did we discuss about the project?"
+- **General Knowledge**: "What is machine learning?"
+- **Real-time Info**: "What time is it?" (handled locally)
+- **Contextual**: Questions using conversation history as context
+
+## 🛠️ Development
+
+### Project Structure
+```
+src/
+├── components/          # React components
+├── contexts/           # React context providers
+├── services/           # Azure service integrations
+├── types/             # TypeScript type definitions
+└── lib/               # Utility functions
+```
+
+### Key Components
+- `AzureSpeechService`: Handles speech-to-text with Azure Speech SDK
+- `AzureOpenAIService`: Manages OpenAI API calls for summaries and Q&A
+- `AppContext`: Central state management and service orchestration
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Microphone not working**: Ensure browser permissions are granted
+2. **Connection failed**: Verify Azure service keys and endpoints
+3. **No transcription**: Check Speech service region and subscription key
+4. **Poor audio quality**: Use a good microphone and quiet environment
+
+### Browser Support
+
+- Chrome/Edge: Full support with optimal performance
+- Firefox: Basic support (Web Speech API fallback)
+- Safari: Limited support
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📞 Support
+
+For issues and questions:
+1. Check the troubleshooting section above
+2. Open an issue on GitHub
+3. Ensure you have valid Azure service credentials
 3. View the real-time transcript as you speak
 4. Switch between Live Transcript, Summaries, and Q&A views
 5. Ask questions manually in the Q&A tab
