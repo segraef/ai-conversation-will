@@ -102,7 +102,7 @@ export class AzureSpeechService {
             timestamp: Date.now(),
             confidence: 0.9, // Azure doesn't provide confidence in continuous mode
             speakerId: 'User',
-            isQuestion: e.result.text.trim().endsWith('?')
+            isQuestion: this.isQuestion(e.result.text.trim())
           };
 
           console.log('Calling onSegmentReceived with:', segment);
@@ -198,5 +198,24 @@ export class AzureSpeechService {
   // Get current listening state
   getIsListening(): boolean {
     return this.isListening;
+  }
+
+  // Helper method to detect if text is a question
+  private isQuestion(text: string): boolean {
+    const trimmed = text.trim().toLowerCase();
+
+    // Direct question mark
+    if (trimmed.endsWith('?')) {
+      return true;
+    }
+
+    // Common question starters
+    const questionStarters = [
+      'what', 'when', 'where', 'why', 'who', 'whom', 'whose', 'which', 'how',
+      'can', 'could', 'would', 'should', 'will', 'shall', 'may', 'might',
+      'do', 'does', 'did', 'are', 'is', 'was', 'were', 'have', 'has', 'had'
+    ];
+
+    return questionStarters.some(starter => trimmed.startsWith(starter + ' '));
   }
 }
