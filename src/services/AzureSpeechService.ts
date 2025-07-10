@@ -1,11 +1,14 @@
 import { TranscriptSegment } from '../contexts/types';
 import { AzureSTTConfig } from '../types';
+import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
 
 export class AzureSpeechService {
   private config: AzureSTTConfig;
   private onSegmentReceived: (segment: TranscriptSegment) => void;
-  private recognition: any = null;
+  private recognizer: speechsdk.SpeechRecognizer | null = null;
   private isListening: boolean = false;
+  private authToken: string | null = null;
+  private tokenExpiry: number | null = null;
 
   constructor(
     config: AzureSTTConfig,
@@ -15,15 +18,14 @@ export class AzureSpeechService {
     this.onSegmentReceived = onSegmentReceived;
   }
 
-  // Check if the service configuration is valid
+  // Check if the service configuration is valid and get an auth token
   async checkConnection(): Promise<boolean> {
     if (!this.config.endpoint || !this.config.subscriptionKey || !this.config.region) {
       return false;
     }
 
     try {
-      // Test connection with Azure Speech Service token endpoint
-      // Use the correct token endpoint format: https://<region>.api.cognitive.microsoft.com/sts/v1.0/issuetoken
+      // Get authentication token from Azure Speech Service
       const tokenUrl = `https://${this.config.region}.api.cognitive.microsoft.com/sts/v1.0/issuetoken`;
       const response = await fetch(tokenUrl, {
         method: 'POST',
@@ -32,12 +34,31 @@ export class AzureSpeechService {
         },
       });
 
-      // If we get a successful token, the credentials are valid
-      return response.status === 200;
+      if (response.status === 200) {
+        this.authToken = await response.text();
+        this.tokenExpiry = Date.now() + (9 * 60 * 1000); // Token expires in 9 minutes
+        console.log('Azure Speech Service authentication token obtained');
+        return true;
+      } else {
+        console.error('Failed to get authentication token:', response.status, response.statusText);
+        return false;
+      }
     } catch (error) {
       console.error('Azure Speech Service connection test failed:', error);
       return false;
     }
+  }
+
+  // Get or refresh authentication token
+  private async getAuthToken(): Promise<string> {
+    // Check if token needs refresh (if it expires in less than 1 minute)
+    if (!this.authToken || !this.tokenExpiry || (Date.now() + 60000) > this.tokenExpiry) {
+      const isConnected = await this.checkConnection();
+      if (!isConnected || !this.authToken) {
+        throw new Error('Failed to get authentication token');
+      }
+    }
+    return this.authToken;
   }
 
   // Start speech recognition using Azure Speech Service
@@ -52,114 +73,81 @@ export class AzureSpeechService {
     }
 
     try {
-      // Request microphone permissions first
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('Microphone permission granted');
-      } catch (permError) {
-        throw new Error('Microphone permission denied. Please allow microphone access and try again.');
-      }
+      // Get authentication token
+      const authToken = await this.getAuthToken();
 
-      // For now, let's use Web Speech API as a working fallback until we implement the full Azure WebSocket API
-      // The Azure Speech Service REST API doesn't support real-time streaming well
+      // Create speech configuration using token and region (like the Azure sample)
+      const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(authToken, this.config.region);
+      speechConfig.speechRecognitionLanguage = 'en-US';
 
-      // Check if Web Speech API is available
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        throw new Error('Speech recognition not supported in this browser. Please use Chrome, Edge, or Safari.');
-      }
+      // Create audio configuration
+      const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
 
-      // Use Web Speech API but with Azure-validated configuration
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      this.recognition = new SpeechRecognition();
+      // Create recognizer
+      this.recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
 
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
+      // Set up event handlers
+      this.recognizer.recognizing = (s, e) => {
+        console.log(`RECOGNIZING: Text=${e.result.text}`);
+        // For real-time feedback, you could emit interim results here
+      };
 
-      // Set a simple, widely supported language
-      // Don't try to detect support beforehand as it doesn't work reliably
-      this.recognition.lang = 'en-US';
+      this.recognizer.recognized = (s, e) => {
+        if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
+          console.log(`RECOGNIZED: Text=${e.result.text}`);
 
-      this.recognition.onstart = () => {
+          const segment: TranscriptSegment = {
+            id: Date.now().toString(),
+            text: e.result.text.trim(),
+            timestamp: Date.now(),
+            confidence: 0.9, // Azure doesn't provide confidence in continuous mode
+            speakerId: 'User',
+            isQuestion: e.result.text.trim().endsWith('?')
+          };
+
+          console.log('Calling onSegmentReceived with:', segment);
+          this.onSegmentReceived(segment);
+        } else if (e.result.reason === speechsdk.ResultReason.NoMatch) {
+          console.log('NOMATCH: Speech could not be recognized.');
+        }
+      };
+
+      this.recognizer.canceled = (s, e) => {
+        console.log(`CANCELED: Reason=${e.reason}`);
+
+        if (e.reason === speechsdk.CancellationReason.Error) {
+          console.error(`CANCELED: ErrorCode=${e.errorCode}`);
+          console.error(`CANCELED: ErrorDetails=${e.errorDetails}`);
+          this.isListening = false;
+
+          // Don't throw here in the event handler, just log the error
+          console.error('Speech recognition error:', e.errorDetails);
+        }
+      };
+
+      this.recognizer.sessionStarted = (s, e) => {
+        console.log('Azure Speech Recognition session started');
         this.isListening = true;
-        console.log('Speech recognition started (Web Speech API with Azure validation)');
       };
 
-      this.recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
+      this.recognizer.sessionStopped = (s, e) => {
+        console.log('Azure Speech Recognition session stopped');
+        this.isListening = false;
+      };
 
-          if (result.isFinal) {
-            console.log('Final speech result:', result[0].transcript);
-
-            const segment: TranscriptSegment = {
-              id: Date.now().toString(),
-              text: result[0].transcript,
-              timestamp: Date.now(),
-              confidence: result[0].confidence || 0.9,
-              speakerId: 'User',
-              isQuestion: result[0].transcript.trim().endsWith('?')
-            };
-
-            console.log('Calling onSegmentReceived with:', segment);
-            this.onSegmentReceived(segment);
-          } else {
-            // Handle interim results for live feedback
-            console.log('Interim result:', result[0].transcript);
-          }
+      // Start continuous recognition (like the Azure sample pattern)
+      console.log('Starting Azure Speech Recognition...');
+      this.recognizer.startContinuousRecognitionAsync(
+        () => {
+          console.log('Azure Speech Recognition started successfully');
+          this.isListening = true;
+        },
+        (err) => {
+          console.error('Error starting Azure Speech Recognition:', err);
+          this.isListening = false;
+          throw new Error(`Failed to start speech recognition: ${err}`);
         }
-      };
-
-      this.recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-
-        // Handle specific error types
-        if (event.error === 'language-not-supported') {
-          console.error('Language not supported. Trying without language specification...');
-          this.isListening = false;
-
-          // Try restarting without language specification
-          setTimeout(() => {
-            this.startRecognitionFallback();
-          }, 100);
-          return; // Don't throw error, we have a fallback
-
-        } else if (event.error === 'no-speech') {
-          console.log('No speech detected, continuing...');
-          // Don't stop for no-speech errors, just continue
-          return;
-        } else if (event.error === 'audio-capture') {
-          console.error('Audio capture error. Please check microphone permissions.');
-          this.isListening = false;
-          throw new Error('Cannot access microphone. Please check permissions.');
-        } else if (event.error === 'not-allowed') {
-          console.error('Microphone access not allowed.');
-          this.isListening = false;
-          throw new Error('Microphone access denied. Please allow microphone access and try again.');
-        } else {
-          console.error('Other speech recognition error:', event.error);
-          this.isListening = false;
-        }
-      };
-
-      this.recognition.onend = () => {
-        console.log('Speech recognition ended');
-
-        // Only auto-restart if we're still supposed to be listening and there wasn't an error
-        if (this.isListening) {
-          setTimeout(() => {
-            if (this.isListening && this.recognition) {
-              try {
-                this.recognition.start();
-              } catch (error) {
-                console.error('Error restarting speech recognition:', error);
-                this.isListening = false;
-              }
-            }
-          }, 100);
-        }
-      };
-
-      this.recognition.start();
+      );
 
     } catch (error) {
       console.error('Error starting speech recognition:', error);
@@ -168,111 +156,33 @@ export class AzureSpeechService {
     }
   }
 
-  // Fallback method for when language-not-supported error occurs
-  private async startRecognitionFallback(): Promise<void> {
-    if (!this.isListening) {
-      this.isListening = true;
-    }
-
-    try {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      this.recognition = new SpeechRecognition();
-
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
-
-      // Don't set any language - let browser use default
-      console.log('Starting speech recognition without language specification');
-
-      this.recognition.onstart = () => {
-        console.log('Fallback speech recognition started');
-      };
-
-      this.recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-
-          if (result.isFinal) {
-            console.log('Final speech result (fallback):', result[0].transcript);
-
-            const segment: TranscriptSegment = {
-              id: Date.now().toString(),
-              text: result[0].transcript,
-              timestamp: Date.now(),
-              confidence: result[0].confidence || 0.9,
-              speakerId: 'User',
-              isQuestion: result[0].transcript.trim().endsWith('?')
-            };
-
-            this.onSegmentReceived(segment);
-          }
-        }
-      };
-
-      this.recognition.onerror = (event: any) => {
-        console.error('Fallback speech recognition error:', event.error);
-
-        if (event.error === 'language-not-supported') {
-          // If even fallback fails, stop trying
-          console.error('Even fallback language not supported. Speech recognition unavailable.');
-          this.isListening = false;
-          return;
-        }
-
-        // Handle other errors normally
-        if (event.error !== 'no-speech') {
-          this.isListening = false;
-        }
-      };
-
-      this.recognition.onend = () => {
-        if (this.isListening) {
-          setTimeout(() => {
-            if (this.isListening && this.recognition) {
-              try {
-                this.recognition.start();
-              } catch (error) {
-                console.error('Error restarting fallback speech recognition:', error);
-                this.isListening = false;
-              }
-            }
-          }, 100);
-        }
-      };
-
-      this.recognition.start();
-
-    } catch (error) {
-      console.error('Error starting fallback speech recognition:', error);
-      this.isListening = false;
-    }
-  }
-
   // Stop speech recognition
   async stopRecognition(): Promise<void> {
-    console.log('Stopping speech recognition...');
+    console.log('Stopping Azure Speech Recognition...');
 
     // Set listening to false first to prevent auto-restart
     this.isListening = false;
 
-    if (this.recognition) {
+    if (this.recognizer) {
       try {
-        // Handle Web Speech API cleanup
-        if (this.recognition.stop) {
-          this.recognition.stop();
-        }
+        // Stop continuous recognition
+        this.recognizer.stopContinuousRecognitionAsync(
+          () => {
+            console.log('Azure Speech Recognition stopped successfully');
+          },
+          (err) => {
+            console.error('Error stopping Azure Speech Recognition:', err);
+          }
+        );
 
-        // Remove event listeners to prevent memory leaks
-        this.recognition.onstart = null;
-        this.recognition.onresult = null;
-        this.recognition.onerror = null;
-        this.recognition.onend = null;
+        // Close the recognizer to free up resources
+        this.recognizer.close();
 
       } catch (error) {
         console.error('Error stopping speech recognition:', error);
       } finally {
-        this.recognition = null;
-        console.log('Speech recognition stopped and cleaned up');
+        this.recognizer = null;
+        console.log('Azure Speech Recognition stopped and cleaned up');
       }
     }
   }
@@ -280,6 +190,9 @@ export class AzureSpeechService {
   // Update service configuration
   updateConfig(config: AzureSTTConfig): void {
     this.config = config;
+    // Clear auth token so it gets refreshed with new config
+    this.authToken = null;
+    this.tokenExpiry = null;
   }
 
   // Get current listening state
