@@ -1,8 +1,17 @@
 {
-    "name": "spark-template",
+    "name": "ai-conversation-assistant",
     "private": true,
-    "version": "0.0.0",
+    "version": "1.0.0",
     "type": "module",
+    "description": "Real-time AI conversation assistant with Azure Speech-to-Text and OpenAI integration",
+    "keywords": ["azure", "speech-to-text", "openai", "react", "typescript", "conversation", "ai"],
+    "author": "segraef",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/segraef/ai-conversation-will.git"
+    },
+    "homepage": "https://github.com/segraef/ai-conversation-will",
     "scripts": {
         "dev": "vite",
         "kill": "fuser -k 5000/tcp",
