@@ -106,11 +106,11 @@ export class AzureOpenAIService {
         : 'You are a helpful assistant that answers questions clearly and concisely. Provide accurate and helpful responses to any question asked.';
 
       let userPrompt: string;
-      
+
       if (contextText) {
         // Check if the question seems to be about the conversation
         const conversationKeywords = ['conversation', 'discuss', 'mention', 'talk about', 'said', 'spoke', 'meeting', 'call'];
-        const isAboutConversation = conversationKeywords.some(keyword => 
+        const isAboutConversation = conversationKeywords.some(keyword =>
           question.toLowerCase().includes(keyword)
         );
 
@@ -165,24 +165,24 @@ export class AzureOpenAIService {
   // Handle real-time questions that AI models can't answer
   private handleRealTimeQuestion(question: string): string | null {
     const lowerQuestion = question.toLowerCase().trim();
-    
+
     // Time-related questions
     if (lowerQuestion.includes('time') && (lowerQuestion.includes('what') || lowerQuestion.includes('current'))) {
       const now = new Date();
       return `The current time is ${now.toLocaleTimeString()} on ${now.toLocaleDateString()}.`;
     }
-    
+
     // Date-related questions
     if ((lowerQuestion.includes('date') || lowerQuestion.includes('today')) && lowerQuestion.includes('what')) {
       const now = new Date();
-      return `Today's date is ${now.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      return `Today's date is ${now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       })}.`;
     }
-    
+
     return null; // Not a real-time question, let AI handle it
   }
 
