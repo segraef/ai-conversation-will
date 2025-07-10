@@ -23,7 +23,9 @@ function AppContent() {
     activeView,
     setActiveView,
     sttStatus,
-    openaiStatus
+    openaiStatus,
+    updateSTTStatus,
+    updateOpenAIStatus
   } = useApp();
 
   const { theme, setTheme } = useTheme();
@@ -64,6 +66,8 @@ function AppContent() {
               onUpdateSettings={updateSettings}
               sttStatus={sttStatus}
               openaiStatus={openaiStatus}
+              updateSTTStatus={updateSTTStatus}
+              updateOpenAIStatus={updateOpenAIStatus}
             />
           </div>
         </div>

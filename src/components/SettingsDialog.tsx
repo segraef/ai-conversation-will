@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,13 +16,17 @@ interface SettingsDialogProps {
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   sttStatus: ConnectionStatus;
   openaiStatus: ConnectionStatus;
+  updateSTTStatus: (status: ConnectionStatus) => void;
+  updateOpenAIStatus: (status: ConnectionStatus) => void;
 }
 
 export function SettingsDialog({
   settings,
   onUpdateSettings,
   sttStatus,
-  openaiStatus
+  openaiStatus,
+  updateSTTStatus,
+  updateOpenAIStatus
 }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -64,37 +68,38 @@ export function SettingsDialog({
 
   // Test STT connection
   const testSTTConnection = async () => {
-    if (!localSettings.stt.endpoint || !localSettings.stt.subscriptionKey) {
-      toast.error('Please enter both endpoint URL and subscription key');
+    if (!localSettings.stt.endpoint || !localSettings.stt.subscriptionKey || !localSettings.stt.region) {
+      toast.error('Please enter endpoint URL, subscription key, and region');
       return;
     }
 
     setTestingSTT(true);
+    updateSTTStatus('connecting');
+
     try {
-      // Test the Speech-to-Text connection
-      const response = await fetch(`${localSettings.stt.endpoint}/speech/recognition/conversation/cognitiveservices/v1`, {
+      // Test the Speech-to-Text connection using the correct token endpoint format
+      // Use the region to construct the correct token endpoint: https://<region>.api.cognitive.microsoft.com/sts/v1.0/issuetoken
+      const tokenUrl = `https://${localSettings.stt.region}.api.cognitive.microsoft.com/sts/v1.0/issuetoken`;
+      const response = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Ocp-Apim-Subscription-Key': localSettings.stt.subscriptionKey,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          config: {
-            encoding: 'LINEAR16',
-            sampleRateHertz: 16000,
-            languageCode: 'en-US'
-          }
-        }),
       });
 
-      if (response.ok || response.status === 400) { // 400 might be expected for test request
+      if (response.ok) {
         toast.success('STT connection successful!');
+        updateSTTStatus('connected');
+        // Apply settings immediately to ensure they're saved
+        onUpdateSettings(localSettings);
       } else {
         toast.error(`STT connection failed: ${response.status} ${response.statusText}`);
+        updateSTTStatus('error');
       }
     } catch (error) {
       console.error('STT connection test failed:', error);
       toast.error('STT connection failed. Please check your settings.');
+      updateSTTStatus('error');
     } finally {
       setTestingSTT(false);
     }
@@ -108,6 +113,8 @@ export function SettingsDialog({
     }
 
     setTestingOpenAI(true);
+    updateOpenAIStatus('connecting');
+
     try {
       // Test the OpenAI connection with a simple request
       const response = await fetch(`${localSettings.openai.endpoint}/openai/deployments/${localSettings.openai.deploymentName}/chat/completions?api-version=2024-02-15-preview`, {
@@ -124,12 +131,17 @@ export function SettingsDialog({
 
       if (response.ok) {
         toast.success('OpenAI connection successful!');
+        updateOpenAIStatus('connected');
+        // Apply settings immediately to ensure they're saved
+        onUpdateSettings(localSettings);
       } else {
         toast.error(`OpenAI connection failed: ${response.status} ${response.statusText}`);
+        updateOpenAIStatus('error');
       }
     } catch (error) {
       console.error('OpenAI connection test failed:', error);
       toast.error('OpenAI connection failed. Please check your settings.');
+      updateOpenAIStatus('error');
     } finally {
       setTestingOpenAI(false);
     }
@@ -166,6 +178,9 @@ export function SettingsDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Configure your Azure Speech-to-Text and OpenAI services for the AI Conversation Assistant.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="general" className="mt-4">
