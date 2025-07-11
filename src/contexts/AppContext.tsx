@@ -36,10 +36,6 @@ interface AppContextType {
   addQA: (qa: QAPair) => void;
   askQuestion: (question: string) => Promise<void>;
 
-  // UI state
-  activeView: 'transcript' | 'summaries' | 'qa';
-  setActiveView: (view: 'transcript' | 'summaries' | 'qa') => void;
-
   // Service connection status
   sttStatus: ConnectionStatus;
   openaiStatus: ConnectionStatus;
@@ -63,7 +59,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [summaries, setSummaries] = useKV<SummaryChunk[]>('ai-assistant-summaries', []);
   const [qaList, setQAList] = useKV<QAPair[]>('ai-assistant-qa', []);
-  const [activeView, setActiveView] = useState<'transcript' | 'summaries' | 'qa'>('transcript');
 
   // Service connection statuses - persist in localStorage
   const [sttStatus, setSTTStatus] = useKV<ConnectionStatus>('ai-assistant-stt-status', 'disconnected');
@@ -329,7 +324,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
 
       addQA(qa);
-      setActiveView('qa');
 
     } catch (error) {
       console.error('Error answering question:', error);
@@ -345,7 +339,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
 
       addQA(qa);
-      setActiveView('qa');
     }
   };
 
@@ -420,8 +413,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         qaList,
         addQA,
         askQuestion,
-        activeView,
-        setActiveView,
         sttStatus,
         openaiStatus,
         updateSTTStatus,

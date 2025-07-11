@@ -11,36 +11,36 @@ interface RecordButtonProps {
 
 export function RecordButton({ isRecording, onToggle, disabled = false }: RecordButtonProps) {
   const [animating, setAnimating] = useState(false);
-  
+
   // Handle animation state
   useEffect(() => {
     if (isRecording) {
       const interval = setInterval(() => {
         setAnimating(prev => !prev);
       }, 1000);
-      
+
       return () => clearInterval(interval);
     } else {
       setAnimating(false);
     }
   }, [isRecording]);
-  
+
   return (
     <Button
       onClick={onToggle}
       disabled={disabled}
       size="lg"
       className={cn(
-        'h-16 w-16 rounded-full transition-all duration-300',
+        'h-12 w-12 rounded-full transition-all duration-300 shadow-md',
         isRecording ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90',
-        animating && 'scale-110'
+        animating && 'scale-105'
       )}
       aria-label={isRecording ? 'Stop recording' : 'Start recording'}
     >
       {isRecording ? (
-        <Stop weight="bold" className="h-8 w-8" />
+        <Stop weight="bold" className="h-6 w-6" />
       ) : (
-        <Microphone weight="bold" className="h-8 w-8" />
+        <Microphone weight="bold" className="h-6 w-6" />
       )}
     </Button>
   );

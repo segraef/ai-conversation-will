@@ -10,7 +10,7 @@ export function TranscriptView({ segments }: TranscriptViewProps) {
   return (
     <Card className="flex-1 overflow-hidden">
       <CardContent className="p-0">
-        <ScrollArea className="h-[calc(100vh-14rem)] w-full">
+        <ScrollArea className="h-[calc(100vh-12rem)] w-full">
           <div className="p-4 space-y-4">
             {segments.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground">

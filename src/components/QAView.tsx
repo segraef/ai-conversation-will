@@ -1,44 +1,20 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QAPair } from '@/contexts/types';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { PaperPlaneRight } from '@phosphor-icons/react';
-import { useState } from 'react';
 
 interface QAViewProps {
   qaList: QAPair[];
-  onAskQuestion: (question: string) => Promise<void>;
 }
 
-export function QAView({ qaList, onAskQuestion }: QAViewProps) {
-  const [newQuestion, setNewQuestion] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newQuestion.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      await onAskQuestion(newQuestion.trim());
-      setNewQuestion('');
-    } catch (error) {
-      console.error('Error asking question:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+export function QAView({ qaList }: QAViewProps) {
   return (
-    <Card className="flex-1 overflow-hidden flex flex-col">
-      <CardContent className="p-0 flex-1 flex flex-col">
-        <ScrollArea className="flex-1 h-[calc(100vh-18rem)] w-full">
+    <Card className="flex-1 overflow-hidden">
+      <CardContent className="p-0">
+        <ScrollArea className="h-[calc(100vh-12rem)] w-full">
           <div className="p-4 space-y-6">
             {qaList.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground">
-                No questions detected yet. Ask a question below or start recording.
+                No questions yet. Use the message field at the top to ask questions about the conversation.
               </div>
             ) : (
               qaList.map((qa) => (
@@ -68,25 +44,6 @@ export function QAView({ qaList, onAskQuestion }: QAViewProps) {
             )}
           </div>
         </ScrollArea>
-
-        <div className="p-4 border-t mt-auto">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Input
-              placeholder="Ask a question..."
-              value={newQuestion}
-              onChange={(e) => setNewQuestion(e.target.value)}
-              disabled={isSubmitting}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              disabled={!newQuestion.trim() || isSubmitting}
-            >
-              <PaperPlaneRight className="mr-2" />
-              Ask
-            </Button>
-          </form>
-        </div>
       </CardContent>
     </Card>
   );
