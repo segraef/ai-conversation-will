@@ -119,24 +119,19 @@ export class AzureSpeechService {
 
       // Event handlers
       this.recognizer.recognizing = (sender, e) => {
+        // Only log interim results, don't add them to transcript to avoid duplicates
         if (e.result.reason === speechsdk.ResultReason.RecognizingSpeech) {
-          this.onSegmentReceived({
-            id: Date.now().toString(),
-            text: e.result.text,
-            timestamp: Date.now(),
-            confidence: 0.9,
-            speakerId: 'User', // Default speaker ID for basic recognition
-            isQuestion: this.isQuestion(e.result.text.trim())
-          });
+          console.log('Interim result:', e.result.text);
+          // Don't call onSegmentReceived here to avoid duplicates
         }
       };
 
       this.recognizer.recognized = (sender, e) => {
-        if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech) {
-          const speakerId = this.simulateSpeakers && Math.random() > 0.5 ? 'Speaker 1' : 'Speaker 2';
+        if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
+          const speakerId = this.simulateSpeakers && Math.random() > 0.5 ? 'Speaker 1' : 'User';
 
           this.onSegmentReceived({
-            id: Date.now().toString(),
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
             text: e.result.text,
             timestamp: Date.now(),
             confidence: 0.9,

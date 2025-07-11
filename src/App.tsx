@@ -87,12 +87,12 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Main content area */}
       <div className="flex-1 flex flex-col">
         {/* Main content - take up most of the space */}
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center space-y-4 max-w-md">
             {(sttStatus !== 'connected' || openaiStatus !== 'connected') && (
               <div className="text-amber-500 text-sm">
                 Configure Azure services in settings to enable recording.
@@ -101,12 +101,12 @@ function AppContent() {
           </div>
         </main>
 
-        {/* Player bar at bottom */}
-        <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg">
-          <div className="container mx-auto px-6 py-3">
-            <div className="flex items-center gap-6">
-              {/* Record button */}
-              <div className="flex-shrink-0">
+        {/* Centered control bar */}
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-background/80 backdrop-blur-lg border border-border/50 rounded-2xl shadow-2xl p-4 md:p-6 max-w-4xl w-screen mx-4 md:mx-0 md:w-auto">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+              {/* Record button - always centered on mobile */}
+              <div className="flex-shrink-0 order-1 md:order-none">
                 <RecordButton
                   isRecording={recordingState.isRecording}
                   onToggle={toggleRecording}
@@ -114,32 +114,29 @@ function AppContent() {
                 />
               </div>
 
-              {/* Recording status, time and visualizer */}
-              <div className="flex-1 min-w-0 max-w-xs">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="text-sm font-medium">
-                    {recordingState.isRecording ? 'Listening' : 'Ready'}
-                  </div>
-                  {recordingState.isRecording && (
+              {/* Recording status and visualizer - stack on mobile */}
+              <div className="flex-1 min-w-0 max-w-xs order-2 md:order-none">
+                {recordingState.isRecording && (
+                  <div className="flex items-center justify-center gap-2 mb-2 md:mb-1">
                     <div className="text-xs text-muted-foreground bg-primary/10 px-2 py-1 rounded">
                       {formatRecordingTime()}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Sound visualizer */}
                 <SoundVisualizer isRecording={recordingState.isRecording} />
               </div>
 
-              {/* Message input field */}
-              <div className="flex-1 max-w-lg">
+              {/* Message input field - full width on mobile */}
+              <div className="flex-1 w-full md:max-w-sm order-3 md:order-none">
                 <form onSubmit={handleMessageSubmit} className="flex gap-2">
                   <Input
-                    placeholder="Write message"
+                    placeholder="Ask..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     disabled={isSubmitting || (sttStatus !== 'connected' || openaiStatus !== 'connected')}
-                    className="flex-1 h-9"
+                    className="flex-1 h-9 bg-background/50 border-border/30"
                   />
                   <Button
                     type="submit"
@@ -152,8 +149,8 @@ function AppContent() {
                 </form>
               </div>
 
-              {/* Control buttons */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Control buttons - spread on mobile */}
+              <div className="flex items-center gap-1 flex-shrink-0 order-4 md:order-none">
                 <Button
                   variant={activePanel === 'transcript' ? 'default' : 'ghost'}
                   size="sm"
@@ -199,30 +196,39 @@ function AppContent() {
         </div>
       </div>
 
-      {/* Side panels - slide in from the right */}
+      {/* Side panels - slide in from the right, adjust for mobile */}
       {activePanel && (
-        <div className="w-[400px] border-l bg-background shadow-xl animate-in slide-in-from-right duration-300">
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between bg-muted/30">
-              <h3 className="font-semibold text-sm">
-                {activePanel === 'transcript' && 'Live Transcript'}
-                {activePanel === 'summaries' && 'Summaries'}
-                {activePanel === 'qa' && 'Questions & Answers'}
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setActivePanel(null)}
-                className="h-6 w-6 p-0 hover:bg-background"
-              >
-                <span className="text-lg">×</span>
-              </Button>
-            </div>
+        <div className="fixed inset-0 md:inset-y-0 md:right-0 md:left-auto z-40">
+          {/* Mobile backdrop */}
+          <div
+            className="md:hidden absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setActivePanel(null)}
+          />
 
-            <div className="flex-1 overflow-hidden">
-              {activePanel === 'transcript' && <TranscriptView segments={transcript} />}
-              {activePanel === 'summaries' && <SummariesView summaries={summaries} />}
-              {activePanel === 'qa' && <QAView qaList={qaList} />}
+          {/* Panel content */}
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl md:min-w-[320px] lg:min-w-[400px] md:border-l bg-background shadow-xl animate-in slide-in-from-right duration-300">
+            <div className="h-full flex flex-col">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/30">
+                <h3 className="font-semibold text-sm">
+                  {activePanel === 'transcript' && 'Live Transcript'}
+                  {activePanel === 'summaries' && 'Summaries'}
+                  {activePanel === 'qa' && 'Questions & Answers'}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActivePanel(null)}
+                  className="h-6 w-6 p-0 hover:bg-background"
+                >
+                  <span className="text-lg">×</span>
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-hidden">
+                {activePanel === 'transcript' && <TranscriptView segments={transcript} />}
+                {activePanel === 'summaries' && <SummariesView summaries={summaries} />}
+                {activePanel === 'qa' && <QAView qaList={qaList} />}
+              </div>
             </div>
           </div>
         </div>
