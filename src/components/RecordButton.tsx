@@ -11,20 +11,20 @@ interface RecordButtonProps {
 
 export function RecordButton({ isRecording, onToggle, disabled = false }: RecordButtonProps) {
   const [animating, setAnimating] = useState(false);
-  
+
   // Handle animation state
   useEffect(() => {
     if (isRecording) {
       const interval = setInterval(() => {
         setAnimating(prev => !prev);
       }, 1000);
-      
+
       return () => clearInterval(interval);
     } else {
       setAnimating(false);
     }
   }, [isRecording]);
-  
+
   return (
     <Button
       onClick={onToggle}

@@ -11,11 +11,11 @@ import { SoundVisualizer } from './components/SoundVisualizer';
 import { Toaster } from '@/components/ui/sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { 
-  ChatText, 
-  ListBullets, 
-  Question, 
-  PaperPlaneRight 
+import {
+  ChatText,
+  ListBullets,
+  Question,
+  PaperPlaneRight
 } from '@phosphor-icons/react';
 
 type PanelType = 'transcript' | 'summaries' | 'qa' | null;
@@ -113,7 +113,7 @@ function AppContent() {
                   disabled={sttStatus !== 'connected' || openaiStatus !== 'connected'}
                 />
               </div>
-              
+
               {/* Recording status, time and visualizer */}
               <div className="flex-1 min-w-0 max-w-xs">
                 <div className="flex items-center gap-2 mb-1">
@@ -126,11 +126,11 @@ function AppContent() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Sound visualizer */}
                 <SoundVisualizer isRecording={recordingState.isRecording} />
               </div>
-              
+
               {/* Message input field */}
               <div className="flex-1 max-w-lg">
                 <form onSubmit={handleMessageSubmit} className="flex gap-2">
@@ -151,7 +151,7 @@ function AppContent() {
                   </Button>
                 </form>
               </div>
-              
+
               {/* Control buttons */}
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Button
@@ -162,7 +162,7 @@ function AppContent() {
                 >
                   <ChatText size={16} />
                 </Button>
-                
+
                 <Button
                   variant={activePanel === 'summaries' ? 'default' : 'ghost'}
                   size="sm"
@@ -171,7 +171,7 @@ function AppContent() {
                 >
                   <ListBullets size={16} />
                 </Button>
-                
+
                 <Button
                   variant={activePanel === 'qa' ? 'default' : 'ghost'}
                   size="sm"
@@ -180,9 +180,9 @@ function AppContent() {
                 >
                   <Question size={16} />
                 </Button>
-                
+
                 <div className="w-px h-6 bg-border mx-1" />
-                
+
                 <SettingsDialog
                   settings={settings}
                   onUpdateSettings={updateSettings}
@@ -191,14 +191,14 @@ function AppContent() {
                   updateSTTStatus={updateSTTStatus}
                   updateOpenAIStatus={updateOpenAIStatus}
                 />
-                
+
                 <DarkModeToggle />
               </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Side panels - slide in from the right */}
       {activePanel && (
         <div className="w-[400px] border-l bg-background shadow-xl animate-in slide-in-from-right duration-300">
@@ -218,7 +218,7 @@ function AppContent() {
                 <span className="text-lg">×</span>
               </Button>
             </div>
-            
+
             <div className="flex-1 overflow-hidden">
               {activePanel === 'transcript' && <TranscriptView segments={transcript} />}
               {activePanel === 'summaries' && <SummariesView summaries={summaries} />}
