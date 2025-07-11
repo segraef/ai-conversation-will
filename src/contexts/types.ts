@@ -2,21 +2,25 @@
 export interface AppSettings {
   // Dark mode toggle
   darkMode: boolean;
-  
+
   // Azure Speech-to-Text settings
   stt: {
     endpoint: string;
     subscriptionKey: string;
     region: string;
+    // Language detection options
+    enableLanguageDetection?: boolean;
+    candidateLanguages?: string[];
+    continuousLanguageIdentification?: boolean;
   };
-  
+
   // Azure OpenAI settings
   openai: {
     endpoint: string;
     subscriptionKey: string;
     deploymentName: string;
   };
-  
+
   // Audio settings
   audio: {
     source: 'microphone' | 'system';
@@ -31,11 +35,14 @@ export const defaultSettings: AppSettings = {
     endpoint: '',
     subscriptionKey: '',
     region: '',
+    enableLanguageDetection: false,
+    candidateLanguages: ['en-US'],
+    continuousLanguageIdentification: false,
   },
   openai: {
     endpoint: '',
     subscriptionKey: '',
-    deploymentName: 'gpt-4',
+    deploymentName: 'gpt-35-turbo',
   },
   audio: {
     source: 'microphone',

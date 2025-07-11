@@ -3,6 +3,10 @@ export interface AzureSTTConfig {
   endpoint: string;
   region: string;
   subscriptionKey: string;
+  // Language detection options
+  enableLanguageDetection?: boolean;
+  candidateLanguages?: string[];
+  continuousLanguageIdentification?: boolean;
 }
 
 // Types for the Azure OpenAI service
@@ -26,12 +30,15 @@ export const defaultSettings: AppSettings = {
   stt: {
     endpoint: '',
     region: '',
-    subscriptionKey: ''
+    subscriptionKey: '',
+    enableLanguageDetection: false,
+    candidateLanguages: ['en-US'],
+    continuousLanguageIdentification: false,
   },
   openai: {
     endpoint: '',
     subscriptionKey: '',
-    deploymentName: 'gpt-4'
+    deploymentName: 'gpt-35-turbo'
   },
   audioSource: 'microphone',
   chunkInterval: 5,

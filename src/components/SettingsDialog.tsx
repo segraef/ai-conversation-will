@@ -295,14 +295,86 @@ export function SettingsDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stt-region">Region</Label>
+              <Label htmlFor="region">Region</Label>
               <Input
-                id="stt-region"
-                placeholder="Auto-detected from endpoint URL"
+                id="region"
+                placeholder="e.g., eastus, westus"
                 value={localSettings.stt.region}
                 disabled
               />
             </div>
+
+            {/* Language Detection Settings */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="enable-language-detection"
+                  checked={localSettings.stt.enableLanguageDetection || false}
+                  onCheckedChange={(checked) => {
+                    setLocalSettings({
+                      ...localSettings,
+                      stt: {
+                        ...localSettings.stt,
+                        enableLanguageDetection: checked,
+                        candidateLanguages: checked ? ['en-US', 'es-ES', 'fr-FR', 'de-DE'] : undefined
+                      }
+                    });
+                  }}
+                />
+                <Label htmlFor="enable-language-detection">Enable Language Auto-Detection</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically detect spoken language from a list of candidates
+              </p>
+            </div>
+
+            {localSettings.stt.enableLanguageDetection && (
+              <div className="space-y-2">
+                <Label>Candidate Languages</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { code: 'en-US', name: 'English (US)' },
+                    { code: 'es-ES', name: 'Spanish (Spain)' },
+                    { code: 'fr-FR', name: 'French (France)' },
+                    { code: 'de-DE', name: 'German' },
+                    { code: 'it-IT', name: 'Italian' },
+                    { code: 'pt-BR', name: 'Portuguese (Brazil)' },
+                    { code: 'ja-JP', name: 'Japanese' },
+                    { code: 'ko-KR', name: 'Korean' },
+                    { code: 'zh-CN', name: 'Chinese (Simplified)' },
+                    { code: 'nl-NL', name: 'Dutch' },
+                    { code: 'ru-RU', name: 'Russian' },
+                    { code: 'ar-SA', name: 'Arabic' }
+                  ].map((lang) => (
+                    <div key={lang.code} className="flex items-center space-x-2">
+                      <Switch
+                        id={`lang-${lang.code}`}
+                        checked={localSettings.stt.candidateLanguages?.includes(lang.code) || false}
+                        onCheckedChange={(checked) => {
+                          const currentLanguages = localSettings.stt.candidateLanguages || [];
+                          const newLanguages = checked
+                            ? [...currentLanguages, lang.code]
+                            : currentLanguages.filter(l => l !== lang.code);
+                          setLocalSettings({
+                            ...localSettings,
+                            stt: {
+                              ...localSettings.stt,
+                              candidateLanguages: newLanguages
+                            }
+                          });
+                        }}
+                      />
+                      <Label htmlFor={`lang-${lang.code}`} className="text-xs">
+                        {lang.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Select which languages to detect. More languages may reduce accuracy.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end">
               <Button
