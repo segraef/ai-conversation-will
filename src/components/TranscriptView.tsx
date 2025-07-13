@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TranscriptSegment, InterimTranscriptSegment } from '@/contexts/types';
 
@@ -21,8 +20,8 @@ export function TranscriptView({ segments, interimText }: TranscriptViewProps) {
     }
   }, [segments, interimText]);
   return (
-    <Card className="flex-1 overflow-hidden">
-      <CardContent className="p-0">
+    <div className="h-full overflow-hidden">
+      <div className="h-full">
         <ScrollArea ref={scrollAreaRef} className="h-[calc(100vh-var(--control-bar-height,140px)-120px)] sm:h-[calc(100vh-12rem)] w-full">
           <div className="p-3 pb-6 space-y-3">{/* Added pb-6 for bottom padding */}
             {segments.length === 0 ? (
@@ -58,7 +57,7 @@ export function TranscriptView({ segments, interimText }: TranscriptViewProps) {
                         {new Date(interimText.timestamp).toLocaleTimeString()}
                       </span>
                       <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">
-                        typing...
+                        speaking...
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground italic">
@@ -70,7 +69,7 @@ export function TranscriptView({ segments, interimText }: TranscriptViewProps) {
             )}
           </div>
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -72,41 +72,6 @@ export function TranslationView({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with controls */}
-      <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium text-xs">Live Translation</h3>
-          <Badge variant="secondary" className="text-xs">
-            {translations.length}
-          </Badge>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {onToggleOriginal && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleOriginal}
-              className="h-6 w-6 p-0"
-              title={showOriginal ? 'Hide original text' : 'Show original text'}
-            >
-              {showOriginal ? <EyeSlash size={12} /> : <Eye size={12} />}
-            </Button>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={exportTranslations}
-            disabled={translations.length === 0}
-            className="h-6 w-6 p-0"
-            title="Export translations"
-          >
-            <Download size={12} />
-          </Button>
-        </div>
-      </div>
-
       {/* Translation list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {translations.length === 0 ? (
@@ -182,19 +147,6 @@ export function TranslationView({
             <div ref={bottomRef} />
           </>
         )}
-      </div>
-
-      {/* Auto-scroll toggle */}
-      <div className="p-2 border-t bg-muted/20">
-        <label className="flex items-center gap-2 text-xs cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.target.checked)}
-            className="h-3 w-3"
-          />
-          Auto-scroll to latest
-        </label>
       </div>
     </div>
   );

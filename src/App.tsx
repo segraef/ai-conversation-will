@@ -9,7 +9,6 @@ import { TranslationView } from './components/TranslationView';
 import { AnalysisView } from './components/AnalysisView';
 import { SettingsDialog } from './components/SettingsDialog';
 import { DarkModeToggle } from './components/DarkModeToggle';
-import { SoundVisualizer } from './components/SoundVisualizer';
 import { Toaster } from '@/components/ui/sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,7 @@ import {
   ChartBar
 } from '@phosphor-icons/react';
 
-type PanelType = 'transcript' | 'summaries' | 'qa' | 'translation' | 'analysis' | null;
+type ViewType = 'transcript' | 'summaries' | 'qa' | 'translation' | 'analysis';
 
 function AppContent() {
   const {
@@ -47,7 +46,7 @@ function AppContent() {
   } = useApp();
 
   const { theme, setTheme } = useTheme();
-  const [activePanel, setActivePanel] = useState<PanelType>(null);
+  const [activeView, setActiveView] = useState<ViewType>('transcript');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -100,8 +99,8 @@ function AppContent() {
     try {
       await askQuestion(message.trim());
       setMessage('');
-      // Optionally open QA panel to show the result
-      setActivePanel('qa');
+      // Switch to QA view to show the result
+      setActiveView('qa');
     } catch (error) {
       console.error('Error asking question:', error);
     } finally {
@@ -109,8 +108,8 @@ function AppContent() {
     }
   };
 
-  const togglePanel = (panel: PanelType) => {
-    setActivePanel(activePanel === panel ? null : panel);
+  const switchView = (view: ViewType) => {
+    setActiveView(view);
   };
 
   return (
@@ -127,39 +126,35 @@ function AppContent() {
                   isRecording={recordingState.isRecording}
                   onToggle={toggleRecording}
                   disabled={sttStatus !== 'connected' || openaiStatus !== 'connected'}
+                  audioLevel={audioLevel}
                 />
               </div>
 
-              {/* Recording status and visualizer */}
-              <div className="min-w-0 w-full sm:w-40 md:w-48 order-2 sm:order-none">
+              {/* Recording status */}
+              <div className="min-w-0 w-full sm:w-40 md:w-48 order-2 sm:order-none flex justify-center">
                 {recordingState.isRecording && (
-                  <div className="flex items-center justify-center gap-2 mb-0.5 sm:mb-1">
-                    <div className="text-xs text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded">
-                      {formatRecordingTime()}
-                    </div>
+                  <div className="text-xs text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded">
+                    {formatRecordingTime()}
                   </div>
                 )}
-
-                {/* Sound visualizer */}
-                <SoundVisualizer isRecording={recordingState.isRecording} audioLevel={audioLevel} />
               </div>
 
               {/* Control buttons - responsive sizing */}
               <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 order-3 sm:order-none overflow-x-auto">
                 <Button
-                  variant={activePanel === 'transcript' ? 'default' : 'ghost'}
+                  variant={activeView === 'transcript' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => togglePanel('transcript')}
+                  onClick={() => switchView('transcript')}
                   className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 p-0 flex-shrink-0"
-                  title="Transcript"
+                  title="Live Transcript"
                 >
                   <ChatText size={10} className="sm:w-3 sm:h-3 md:w-3.5 md:h-3.5" />
                 </Button>
 
                 <Button
-                  variant={activePanel === 'summaries' ? 'default' : 'ghost'}
+                  variant={activeView === 'summaries' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => togglePanel('summaries')}
+                  onClick={() => switchView('summaries')}
                   className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 p-0 flex-shrink-0"
                   title="Summaries"
                 >
@@ -167,19 +162,19 @@ function AppContent() {
                 </Button>
 
                 <Button
-                  variant={activePanel === 'qa' ? 'default' : 'ghost'}
+                  variant={activeView === 'qa' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => togglePanel('qa')}
+                  onClick={() => switchView('qa')}
                   className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 p-0 flex-shrink-0"
-                  title="Q&A"
+                  title="Questions & Answers"
                 >
                   <Question size={10} className="sm:w-3 sm:h-3 md:w-3.5 md:h-3.5" />
                 </Button>
 
                 <Button
-                  variant={activePanel === 'translation' ? 'default' : 'ghost'}
+                  variant={activeView === 'translation' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => togglePanel('translation')}
+                  onClick={() => switchView('translation')}
                   className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 p-0 flex-shrink-0"
                   title="Translation"
                 >
@@ -187,9 +182,9 @@ function AppContent() {
                 </Button>
 
                 <Button
-                  variant={activePanel === 'analysis' ? 'default' : 'ghost'}
+                  variant={activeView === 'analysis' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => togglePanel('analysis')}
+                  onClick={() => switchView('analysis')}
                   className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 p-0 flex-shrink-0"
                   title="Analysis"
                 >
@@ -237,67 +232,28 @@ function AppContent() {
         </div>
       </div>
 
-      {/* Main content area with views */}
-      <div className="flex-1 flex">
-        {/* Center content when no panel is active */}
-        <div className={`flex-1 ${activePanel ? 'hidden sm:flex' : 'flex'} flex-col`}>
-          <main className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center space-y-4 max-w-md">
-              {(sttStatus !== 'connected' || openaiStatus !== 'connected') && (
-                <div className="text-amber-500 text-sm">
-                  Configure Azure services in settings to enable recording.
-                </div>
-              )}
-            </div>
-          </main>
-        </div>
-
-        {/* Views panel - positioned below control bar */}
-        {activePanel && (
-          <div className="fixed inset-x-0 top-0 bottom-0 sm:relative sm:inset-auto z-30 flex flex-col sm:w-80 md:w-96 lg:w-[28rem] xl:w-[32rem]">
-            {/* Mobile overlay - positioned below control bar */}
-            <div
-              className="sm:hidden absolute inset-x-0 bottom-0 panel-below-control-bar bg-black/50 backdrop-blur-sm"
-              onClick={() => setActivePanel(null)}
+      {/* Main content area - views directly below control bar */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full bg-background">
+          {activeView === 'transcript' && (
+            <TranscriptView segments={transcript} interimText={interimText} />
+          )}
+          {activeView === 'summaries' && (
+            <SummariesView summaries={summaries} />
+          )}
+          {activeView === 'qa' && (
+            <QAView qaList={qaList} />
+          )}
+          {activeView === 'translation' && (
+            <TranslationView
+              translations={translations}
+              showOriginal={settings.translation.showOriginal}
             />
-
-            {/* Panel content - positioned below control bar on mobile */}
-            <div className="absolute inset-x-2 bottom-2 panel-below-control-bar sm:relative sm:inset-0 sm:h-full bg-background border border-border/50 sm:border-l rounded-lg sm:rounded-none sm:rounded-l-lg shadow-xl overflow-hidden">
-              <div className="h-full flex flex-col">
-                <div className="p-2 sm:p-3 border-b flex items-center justify-between bg-muted/30">
-                  <h3 className="font-medium text-xs">
-                    {activePanel === 'transcript' && 'Live Transcript'}
-                    {activePanel === 'summaries' && 'Summaries'}
-                    {activePanel === 'qa' && 'Questions & Answers'}
-                    {activePanel === 'translation' && 'Translation'}
-                    {activePanel === 'analysis' && 'Analysis'}
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setActivePanel(null)}
-                    className="h-5 w-5 p-0 hover:bg-background"
-                  >
-                    <span className="text-sm">×</span>
-                  </Button>
-                </div>
-
-                <div className="flex-1 overflow-hidden">
-                  {activePanel === 'transcript' && <TranscriptView segments={transcript} interimText={interimText} />}
-                  {activePanel === 'summaries' && <SummariesView summaries={summaries} />}
-                  {activePanel === 'qa' && <QAView qaList={qaList} />}
-                  {activePanel === 'translation' && (
-                    <TranslationView
-                      translations={translations}
-                      showOriginal={settings.translation.showOriginal}
-                    />
-                  )}
-                  {activePanel === 'analysis' && <AnalysisView analyses={analyses} />}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+          {activeView === 'analysis' && (
+            <AnalysisView analyses={analyses} />
+          )}
+        </div>
       </div>
 
       <Toaster />

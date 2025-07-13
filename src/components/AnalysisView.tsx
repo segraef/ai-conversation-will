@@ -122,27 +122,6 @@ export function AnalysisView({ analyses }: AnalysisViewProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with controls */}
-      <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium text-xs">Speech Analysis</h3>
-          <Badge variant="secondary" className="text-xs">
-            {filteredAnalyses.length}
-          </Badge>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={exportAnalyses}
-          disabled={filteredAnalyses.length === 0}
-          className="h-6 w-6 p-0"
-          title="Export analysis"
-        >
-          <Download size={12} />
-        </Button>
-      </div>
-
       {/* Analysis tabs */}
       <div className="border-b">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -242,19 +221,6 @@ export function AnalysisView({ analyses }: AnalysisViewProps) {
             <div ref={bottomRef} />
           </>
         )}
-      </div>
-
-      {/* Auto-scroll toggle */}
-      <div className="p-2 border-t bg-muted/20">
-        <label className="flex items-center gap-2 text-xs cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.target.checked)}
-            className="h-3 w-3"
-          />
-          Auto-scroll to latest
-        </label>
       </div>
     </div>
   );

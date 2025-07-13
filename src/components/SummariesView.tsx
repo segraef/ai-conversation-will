@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SummaryChunk } from '@/contexts/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -28,8 +27,8 @@ export function SummariesView({ summaries }: SummariesViewProps) {
   };
 
   return (
-    <Card className="flex-1 overflow-hidden">
-      <CardContent className="p-0">
+    <div className="h-full overflow-hidden">
+      <div className="h-full">
         <ScrollArea className="h-[calc(100vh-12rem)] w-full">
           <div className="p-3 space-y-3">
             {summaries.length === 0 ? (
@@ -42,7 +41,7 @@ export function SummariesView({ summaries }: SummariesViewProps) {
                   key={summary.id}
                   open={openSummaryId === summary.id}
                   onOpenChange={() => toggleSummary(summary.id)}
-                  className="border rounded-md"
+                  className="border"
                 >
                   <CollapsibleTrigger asChild>
                     <Button
@@ -66,7 +65,7 @@ export function SummariesView({ summaries }: SummariesViewProps) {
             )}
           </div>
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

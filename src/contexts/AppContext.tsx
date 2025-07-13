@@ -521,7 +521,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addTranscriptSegment,
         clearTranscript,
         interimText,
-        setInterimText: clearInterimText,
+        setInterimText,
         summaries,
         addSummary,
         qaList,
