@@ -50,6 +50,23 @@ function AppContent() {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Get control bar height for mobile positioning
+  useEffect(() => {
+    const updateControlBarHeight = () => {
+      const controlBar = document.querySelector('[data-control-bar]');
+      if (controlBar) {
+        const height = controlBar.getBoundingClientRect().height;
+        document.documentElement.style.setProperty('--control-bar-height', `${height}px`);
+      }
+    };
+
+    // Update on load and resize
+    updateControlBarHeight();
+    window.addEventListener('resize', updateControlBarHeight);
+
+    return () => window.removeEventListener('resize', updateControlBarHeight);
+  }, []);
+
   // Sync theme with app settings (one-way sync to avoid loops)
   useEffect(() => {
     const isDark = theme === 'dark';
@@ -98,7 +115,7 @@ function AppContent() {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background text-foreground flex flex-col">
       {/* Control bar at the top */}
-      <div className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-lg border-b border-border/50 safe-area-inset-top">
+      <div data-control-bar className="sticky top-0 z-[60] w-full bg-background backdrop-blur-lg border-b border-border/50 safe-area-inset-top shadow-sm">
         <div className="max-w-4xl mx-auto p-2 sm:p-3 md:p-4">
           <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3">
             {/* Top row with record button, visualizer, and controls */}
@@ -234,17 +251,17 @@ function AppContent() {
           </main>
         </div>
 
-        {/* Views panel - now positioned below control bar */}
+        {/* Views panel - positioned below control bar */}
         {activePanel && (
-          <div className="fixed inset-0 sm:relative sm:inset-auto z-40 flex flex-col sm:w-80 md:w-96 lg:w-[28rem] xl:w-[32rem]">
-            {/* Mobile overlay */}
+          <div className="fixed inset-x-0 top-0 bottom-0 sm:relative sm:inset-auto z-30 flex flex-col sm:w-80 md:w-96 lg:w-[28rem] xl:w-[32rem]">
+            {/* Mobile overlay - positioned below control bar */}
             <div
-              className="sm:hidden absolute inset-0 bg-black/50 backdrop-blur-sm"
+              className="sm:hidden absolute inset-x-0 bottom-0 panel-below-control-bar bg-black/50 backdrop-blur-sm"
               onClick={() => setActivePanel(null)}
             />
 
             {/* Panel content - positioned below control bar on mobile */}
-            <div className="absolute inset-x-2 top-2 bottom-2 sm:relative sm:inset-0 sm:top-0 sm:bottom-0 sm:h-full bg-background border border-border/50 sm:border-l rounded-lg sm:rounded-none sm:rounded-l-lg shadow-xl overflow-hidden">
+            <div className="absolute inset-x-2 bottom-2 panel-below-control-bar sm:relative sm:inset-0 sm:h-full bg-background border border-border/50 sm:border-l rounded-lg sm:rounded-none sm:rounded-l-lg shadow-xl overflow-hidden">
               <div className="h-full flex flex-col">
                 <div className="p-2 sm:p-3 border-b flex items-center justify-between bg-muted/30">
                   <h3 className="font-medium text-xs">
