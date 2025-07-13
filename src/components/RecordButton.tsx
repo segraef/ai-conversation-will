@@ -21,15 +21,15 @@ export function RecordButton({ isRecording, onToggle, disabled = false, audioLev
     <div className="relative">
       {/* Animated glow effect when recording */}
       {isRecording && (
-        <div 
+        <div
           className="absolute inset-0 rounded-full bg-red-500/30 blur-md transition-all duration-150"
-          style={{ 
+          style={{
             transform: `scale(${pulseScale})`,
             opacity: 0.3 + (glowIntensity * 0.4) // Opacity from 0.3 to 0.7
           }}
         />
       )}
-      
+
       <Button
         onClick={onToggle}
         disabled={disabled}
@@ -52,7 +52,7 @@ export function RecordButton({ isRecording, onToggle, disabled = false, audioLev
           // Audio-reactive scaling when recording
           isRecording && 'transition-transform duration-150'
         )}
-        style={isRecording ? { 
+        style={isRecording ? {
           transform: `scale(${0.95 + (glowIntensity * 0.1)})` // Scale from 0.95 to 1.05 based on audio
         } : undefined}
         aria-label={isRecording ? 'Stop recording' : 'Start recording'}

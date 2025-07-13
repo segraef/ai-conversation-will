@@ -159,14 +159,14 @@ export class AzureSpeechService {
       this.recognizer.recognizing = (sender, e) => {
         if (e.result.reason === speechsdk.ResultReason.RecognizingSpeech && e.result.text.trim()) {
           console.log('Interim result:', e.result.text);
-          
+
           // Send interim text for real-time display
           if (this.onInterimTextReceived) {
             // Create or update current interim segment
             if (!this.currentInterimId) {
               this.currentInterimId = 'interim-' + Date.now().toString() + Math.random().toString(36).substr(2, 9);
             }
-            
+
             const interimSegment: InterimTranscriptSegment = {
               id: this.currentInterimId,
               text: e.result.text,
@@ -174,7 +174,7 @@ export class AzureSpeechService {
               timestamp: Date.now(),
               isPartial: true
             };
-            
+
             this.onInterimTextReceived(interimSegment);
           }
         }
@@ -184,7 +184,7 @@ export class AzureSpeechService {
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
           // Clear current interim ID since we now have final text
           this.currentInterimId = null;
-          
+
           // Use enhanced voice analysis for speaker detection
           const speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
 
@@ -257,7 +257,7 @@ export class AzureSpeechService {
 
     // Set listening to false first to prevent auto-restart
     this.isListening = false;
-    
+
     // Clear current interim segment
     this.currentInterimId = null;
 
