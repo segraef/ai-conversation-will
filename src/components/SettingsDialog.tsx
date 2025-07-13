@@ -217,9 +217,9 @@ export function SettingsDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Default Device</SelectItem>
-                  {audioDevices.map((device) => (
+                  {audioDevices.filter(device => device.deviceId && device.deviceId.trim() !== '').map((device) => (
                     <SelectItem key={device.deviceId} value={device.deviceId}>
-                      {device.label}
+                      {device.label || `Device ${device.deviceId.slice(0, 8)}...`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -310,7 +310,7 @@ export function SettingsDialog({
                       <SelectValue placeholder="Select target language" />
                     </SelectTrigger>
                     <SelectContent>
-                      {SUPPORTED_LANGUAGES.map((lang) => (
+                      {SUPPORTED_LANGUAGES.filter(lang => lang.code && lang.name).map((lang) => (
                         <SelectItem key={lang.code} value={lang.code}>
                           {lang.name}
                         </SelectItem>

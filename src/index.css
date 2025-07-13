@@ -52,7 +52,7 @@
 
   /* Panel positioning below control bar */
   .panel-below-control-bar {
-    top: calc(env(safe-area-inset-top) + var(--control-bar-height, 120px)); /* Use dynamic height or fallback */
+    top: calc(env(safe-area-inset-top) + var(--control-bar-height, 140px) + 8px); /* Add extra padding */
   }
 
   @media (min-width: 640px) {

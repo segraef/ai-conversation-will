@@ -18,6 +18,9 @@ export class AzureSpeechService {
   private dataArray: Uint8Array | null = null;
   private animationFrameId: number | null = null;
   private microphoneStream: MediaStream | null = null;
+  private lastSpeakerId: string = 'Speaker 1'; // Track last speaker for consistency
+  private speakerSwitchThreshold: number = 5000; // 5 seconds threshold for speaker switches
+  private lastSpeechTime: number = 0;
 
   constructor(
     config: AzureSTTConfig,
@@ -89,6 +92,11 @@ export class AzureSpeechService {
         this.config.candidateLanguages &&
         this.config.candidateLanguages.length > 1) {
       console.log('Language detection enabled with candidates:', this.config.candidateLanguages);
+      // Enable continuous language identification for better detection
+      speechConfig.setProperty(
+        speechsdk.PropertyId.SpeechServiceConnection_LanguageIdMode,
+        'Continuous'
+      );
       // Don't set a specific language when using language detection
     } else {
       // Use the first candidate language or default to English
@@ -176,7 +184,28 @@ export class AzureSpeechService {
 
       this.recognizer.recognized = (sender, e) => {
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
-          const speakerId = this.simulateSpeakers && Math.random() > 0.5 ? 'Speaker 1' : 'User';
+          // Try to get speaker ID from Azure Speech Service
+          let speakerId = 'Speaker 1'; // Default fallback
+          
+          try {
+            // Check if speaker diarization result is available
+            if (e.result.properties && e.result.properties.getProperty) {
+              const speakerInfo = e.result.properties.getProperty('SpeakerId');
+              if (speakerInfo) {
+                speakerId = `Speaker ${speakerInfo}`;
+              }
+            }
+            
+            // If no speaker ID from service, use a more consistent pattern
+            // based on text patterns and timing
+            if (speakerId === 'Speaker 1') {
+              speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
+            }
+          } catch (error) {
+            console.log('Could not extract speaker information:', error);
+            // Use consistent fallback based on content analysis
+            speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
+          }
 
           // Extract detected language if available
           let detectedLanguage = 'unknown';
@@ -472,5 +501,26 @@ export class AzureSpeechService {
     ];
 
     return questionStarters.some(starter => trimmed.startsWith(starter + ' '));
+  }
+
+  // Method to determine speaker based on context and timing
+  private determineSpeakerFromContext(text: string, offset: number): string {
+    const currentTime = Date.now();
+    const timeSinceLastSpeech = currentTime - this.lastSpeechTime;
+    
+    // If enough time has passed or this is the first speech, potentially switch speakers
+    if (timeSinceLastSpeech > this.speakerSwitchThreshold) {
+      // Alternate between speakers based on various factors
+      const isQuestion = this.isQuestion(text);
+      const textLength = text.length;
+      
+      // Simple heuristic: questions and shorter utterances might be from a different speaker
+      if (isQuestion || textLength < 50) {
+        this.lastSpeakerId = this.lastSpeakerId === 'Speaker 1' ? 'Speaker 2' : 'Speaker 1';
+      }
+    }
+    
+    this.lastSpeechTime = currentTime;
+    return this.lastSpeakerId;
   }
 }

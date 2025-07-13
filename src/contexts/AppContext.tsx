@@ -180,7 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         openaiServiceRef.current.updateConfig(settings.openai);
       }
     }
-  }, [sttStatus, openaiStatus, settings.stt, settings.openai]);
+  }, [sttStatus, openaiStatus, settings.stt, settings.openai, settings.stt.enableLanguageDetection, settings.stt.candidateLanguages]);
 
   // Handle transcript segment
   const handleTranscriptSegment = async (segment: TranscriptSegment) => {
