@@ -4,6 +4,7 @@ import {
   AppSettings,
   defaultSettings,
   TranscriptSegment,
+  InterimTranscriptSegment,
   SummaryChunk,
   QAPair,
   ConnectionStatus,
@@ -34,6 +35,10 @@ interface AppContextType {
   transcript: TranscriptSegment[];
   addTranscriptSegment: (segment: TranscriptSegment) => void;
   clearTranscript: () => void;
+
+  // Interim transcript data for real-time display
+  interimText: InterimTranscriptSegment | null;
+  setInterimText: (segment: InterimTranscriptSegment | null) => void;
 
   // Summary data
   summaries: SummaryChunk[];
@@ -94,6 +99,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
 
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [interimText, setInterimText] = useState<InterimTranscriptSegment | null>(null);
   const [summaries, setSummaries] = useKV<SummaryChunk[]>('ai-assistant-summaries', []);
   const [qaList, setQAList] = useKV<QAPair[]>('ai-assistant-qa', []);
   const [translations, setTranslations] = useKV<TranslationSegment[]>('ai-assistant-translations', []);
@@ -162,7 +168,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         speechServiceRef.current = new AzureSpeechService(
           settings.stt,
           handleTranscriptSegment,
-          (level) => setAudioLevel(level)
+          (level) => setAudioLevel(level),
+          handleInterimText
         );
       } else {
         // Update existing instance
@@ -186,6 +193,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleTranscriptSegment = async (segment: TranscriptSegment) => {
     console.log('Received transcript segment:', segment);
 
+    // Clear interim text since we now have final text
+    clearInterimText();
+
     // Add segment to transcript
     addTranscriptSegment(segment);
 
@@ -205,6 +215,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (segment.isQuestion && openaiServiceRef.current) {
       handleQuestion(segment.text);
     }
+  };
+
+  // Handle interim transcript
+  const handleInterimText = (segment: InterimTranscriptSegment) => {
+    setInterimText(segment);
+  };
+
+  // Clear interim text
+  const clearInterimText = () => {
+    setInterimText(null);
   };
 
   // Create summary from current transcript
@@ -246,6 +266,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Reset audio level
       setAudioLevel(0);
 
+      // Clear interim text
+      clearInterimText();
+
       // Stop speech recognition
       if (speechServiceRef.current) {
         try {
@@ -279,6 +302,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Reset transcript for new session
       setTranscript([]);
+
+      // Clear interim text
+      clearInterimText();
 
       // Reset last summary time
       lastSummaryTimeRef.current = Date.now();
@@ -441,7 +467,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (settings.stt.endpoint && settings.stt.subscriptionKey && settings.stt.region && sttStatus === 'disconnected') {
         setSTTStatus('connecting');
         try {
-          const tempService = new AzureSpeechService(settings.stt, () => {}, () => {});
+          const tempService = new AzureSpeechService(settings.stt, () => {}, () => {}, () => {});
           const isConnected = await tempService.checkConnection();
           setSTTStatus(isConnected ? 'connected' : 'error');
         } catch (error) {
@@ -494,6 +520,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         transcript,
         addTranscriptSegment,
         clearTranscript,
+        interimText,
+        setInterimText: clearInterimText,
         summaries,
         addSummary,
         qaList,

@@ -75,6 +75,15 @@ export interface TranscriptSegment {
   detectedLanguage?: string; // Language detected by auto-detection
 }
 
+// Interim transcript segment for real-time word-by-word display
+export interface InterimTranscriptSegment {
+  id: string;
+  text: string;
+  speakerId?: string;
+  timestamp: number;
+  isPartial: true; // Always true for interim segments
+}
+
 // Summary chunk representing a summarized portion of the transcript
 export interface SummaryChunk {
   id: string;

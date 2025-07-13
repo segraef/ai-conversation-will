@@ -1,35 +1,44 @@
-import { TranscriptSegment } from '../contexts/types';
+import { TranscriptSegment, InterimTranscriptSegment } from '../contexts/types';
 import { AzureSTTConfig } from '../types';
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
 
 export class AzureSpeechService {
   private config: AzureSTTConfig;
   private onSegmentReceived: (segment: TranscriptSegment) => void;
+  private onInterimTextReceived?: (interimSegment: InterimTranscriptSegment) => void;
   private onAudioLevel?: (level: number) => void;
   private recognizer: speechsdk.SpeechRecognizer | null = null;
   private conversationTranscriber: speechsdk.ConversationTranscriber | null = null;
   private isListening: boolean = false;
   private authToken: string | null = null;
   private tokenExpiry: number | null = null;
-  private useSpeakerDiarization: boolean = true; // Enable speaker diarization by default
-  private simulateSpeakers: boolean = true; // Simulate multiple speakers when real diarization isn't available
+  private useSpeakerDiarization: boolean = true;
+  private simulateSpeakers: boolean = true;
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private dataArray: Uint8Array | null = null;
   private animationFrameId: number | null = null;
   private microphoneStream: MediaStream | null = null;
-  private lastSpeakerId: string = 'Speaker 1'; // Track last speaker for consistency
-  private speakerSwitchThreshold: number = 5000; // 5 seconds threshold for speaker switches
+
+  // Enhanced speaker detection
+  private lastSpeakerId: string = 'Speaker 1';
+  private speechHistory: Array<{text: string, timestamp: number, speakerId: string, audioLevel: number}> = [];
+  private audioLevelHistory: number[] = [];
+  private voicePatterns: Map<string, {avgPitch: number, avgEnergy: number, speechRate: number, avgLength: number}> = new Map();
+  private speakerConsistencyCounter: number = 0; // Track how many consecutive utterances from same speaker
   private lastSpeechTime: number = 0;
+  private currentInterimId: string | null = null; // Track current interim segment
 
   constructor(
     config: AzureSTTConfig,
     onSegmentReceived: (segment: TranscriptSegment) => void,
-    onAudioLevel?: (level: number) => void
+    onAudioLevel?: (level: number) => void,
+    onInterimTextReceived?: (interimSegment: InterimTranscriptSegment) => void
   ) {
     this.config = config;
     this.onSegmentReceived = onSegmentReceived;
     this.onAudioLevel = onAudioLevel;
+    this.onInterimTextReceived = onInterimTextReceived;
   }
 
   // Check if the service configuration is valid and get an auth token
@@ -82,34 +91,20 @@ export class AzureSpeechService {
       this.config.region
     );
 
-    // Don't set custom endpoint for now to avoid conflicts
-    // if (this.config.endpoint && this.config.endpoint.startsWith('https://')) {
-    //   speechConfig.endpointId = this.config.endpoint;
-    // }
-
     // Set language or enable language detection
     if (this.config.enableLanguageDetection &&
         this.config.candidateLanguages &&
         this.config.candidateLanguages.length > 1) {
       console.log('Language detection enabled with candidates:', this.config.candidateLanguages);
-      // Enable continuous language identification for better detection
       speechConfig.setProperty(
         speechsdk.PropertyId.SpeechServiceConnection_LanguageIdMode,
         'Continuous'
       );
-      // Don't set a specific language when using language detection
     } else {
-      // Use the first candidate language or default to English
       const language = this.config.candidateLanguages?.[0] || 'en-US';
       speechConfig.speechRecognitionLanguage = language;
       console.log('Using fixed language:', language);
     }
-
-    // Enable speaker diarization
-    speechConfig.setProperty(
-      speechsdk.PropertyId.SpeechServiceConnection_RecoMode,
-      'CONVERSATION'
-    );
 
     return speechConfig;
   }
@@ -120,30 +115,24 @@ export class AzureSpeechService {
       return;
     }
 
-    // Check if Azure Speech Service is configured
     if (!this.config.endpoint || !this.config.subscriptionKey || !this.config.region) {
       throw new Error('Azure Speech Service not configured. Please set endpoint, subscription key, and region.');
     }
 
     try {
-      // Get authentication token
       const authToken = await this.getAuthToken();
-
       const speechConfig = this.createSpeechConfig();
 
-      // Set up audio level monitoring BEFORE creating speech recognizer
-      // to avoid microphone access conflicts
+      // Set up audio level monitoring
       if (this.onAudioLevel) {
         await this.setupAudioLevelMonitoring(deviceId);
       }
 
-      // Use the shared microphone stream for Azure Speech SDK if available
+      // Create audio config
       let audioConfig;
       if (this.microphoneStream) {
-        // Create audio config from the existing stream
         audioConfig = speechsdk.AudioConfig.fromStreamInput(this.microphoneStream);
       } else {
-        // Fallback to default microphone
         audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
       }
 
@@ -153,59 +142,51 @@ export class AzureSpeechService {
           this.config.candidateLanguages.length > 1) {
 
         console.log('Creating recognizer with language detection for languages:', this.config.candidateLanguages);
-
-        // Create language detection configuration
         const autoDetectSourceLanguageConfig = speechsdk.AutoDetectSourceLanguageConfig.fromLanguages(
           this.config.candidateLanguages
         );
-
-        // Create recognizer with auto-detect configuration
         this.recognizer = speechsdk.SpeechRecognizer.FromConfig(
           speechConfig,
           autoDetectSourceLanguageConfig,
           audioConfig
         );
-
-        console.log('Language detection recognizer created successfully');
       } else {
-        // Create standard recognizer
         console.log('Using standard recognition with language:', speechConfig.speechRecognitionLanguage);
         this.recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
       }
 
       // Event handlers
       this.recognizer.recognizing = (sender, e) => {
-        // Only log interim results, don't add them to transcript to avoid duplicates
-        if (e.result.reason === speechsdk.ResultReason.RecognizingSpeech) {
+        if (e.result.reason === speechsdk.ResultReason.RecognizingSpeech && e.result.text.trim()) {
           console.log('Interim result:', e.result.text);
-          // Don't call onSegmentReceived here to avoid duplicates
+          
+          // Send interim text for real-time display
+          if (this.onInterimTextReceived) {
+            // Create or update current interim segment
+            if (!this.currentInterimId) {
+              this.currentInterimId = 'interim-' + Date.now().toString() + Math.random().toString(36).substr(2, 9);
+            }
+            
+            const interimSegment: InterimTranscriptSegment = {
+              id: this.currentInterimId,
+              text: e.result.text,
+              speakerId: this.lastSpeakerId, // Use current speaker for interim
+              timestamp: Date.now(),
+              isPartial: true
+            };
+            
+            this.onInterimTextReceived(interimSegment);
+          }
         }
       };
 
       this.recognizer.recognized = (sender, e) => {
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
-          // Try to get speaker ID from Azure Speech Service
-          let speakerId = 'Speaker 1'; // Default fallback
+          // Clear current interim ID since we now have final text
+          this.currentInterimId = null;
           
-          try {
-            // Check if speaker diarization result is available
-            if (e.result.properties && e.result.properties.getProperty) {
-              const speakerInfo = e.result.properties.getProperty('SpeakerId');
-              if (speakerInfo) {
-                speakerId = `Speaker ${speakerInfo}`;
-              }
-            }
-            
-            // If no speaker ID from service, use a more consistent pattern
-            // based on text patterns and timing
-            if (speakerId === 'Speaker 1') {
-              speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
-            }
-          } catch (error) {
-            console.log('Could not extract speaker information:', error);
-            // Use consistent fallback based on content analysis
-            speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
-          }
+          // Use enhanced voice analysis for speaker detection
+          const speakerId = this.determineSpeakerFromContext(e.result.text, e.result.offset);
 
           // Extract detected language if available
           let detectedLanguage = 'unknown';
@@ -220,7 +201,7 @@ export class AzureSpeechService {
           }
 
           this.onSegmentReceived({
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             text: e.result.text,
             timestamp: Date.now(),
             confidence: 0.9,
@@ -237,7 +218,6 @@ export class AzureSpeechService {
           console.error(`CANCELED: ErrorCode=${e.errorCode}`);
           console.error(`CANCELED: ErrorDetails=${e.errorDetails}`);
           this.isListening = false;
-          console.error('Speech recognition error:', e.errorDetails);
         }
       };
 
@@ -277,6 +257,9 @@ export class AzureSpeechService {
 
     // Set listening to false first to prevent auto-restart
     this.isListening = false;
+    
+    // Clear current interim segment
+    this.currentInterimId = null;
 
     // Stop audio level monitoring
     if (this.animationFrameId) {
@@ -410,6 +393,12 @@ export class AzureSpeechService {
       // Convert to percentage (0-100) with better scaling
       const level = Math.min(100, (rms / 128) * 100);
 
+      // Store audio level for speaker detection
+      this.audioLevelHistory.push(level);
+      if (this.audioLevelHistory.length > 20) {
+        this.audioLevelHistory.shift();
+      }
+
       // Debug logging
       if (level > 1) {
         console.log('Audio level detected:', level.toFixed(2));
@@ -507,20 +496,139 @@ export class AzureSpeechService {
   private determineSpeakerFromContext(text: string, offset: number): string {
     const currentTime = Date.now();
     const timeSinceLastSpeech = currentTime - this.lastSpeechTime;
-    
-    // If enough time has passed or this is the first speech, potentially switch speakers
-    if (timeSinceLastSpeech > this.speakerSwitchThreshold) {
-      // Alternate between speakers based on various factors
-      const isQuestion = this.isQuestion(text);
-      const textLength = text.length;
-      
-      // Simple heuristic: questions and shorter utterances might be from a different speaker
-      if (isQuestion || textLength < 50) {
-        this.lastSpeakerId = this.lastSpeakerId === 'Speaker 1' ? 'Speaker 2' : 'Speaker 1';
+
+    // Get current audio level
+    const currentAudioLevel = this.audioLevelHistory.length > 0
+      ? this.audioLevelHistory[this.audioLevelHistory.length - 1]
+      : 0;
+
+    // Analyze text characteristics
+    const textLength = text.length;
+    const wordCount = text.split(' ').length;
+    const isQuestion = this.isQuestion(text);
+    const speechRate = wordCount / (textLength / 100); // Rough speech rate estimate
+
+    // Add current speech to history with audio level
+    this.speechHistory.push({
+      text,
+      timestamp: currentTime,
+      speakerId: this.lastSpeakerId,
+      audioLevel: currentAudioLevel
+    });
+
+    // Keep only recent history (last 15 utterances)
+    if (this.speechHistory.length > 15) {
+      this.speechHistory.shift();
+    }
+
+    // Decision factors for speaker switching
+    let shouldSwitchSpeaker = false;
+    let switchReasons: string[] = [];
+
+    // Factor 1: Significant pause (more than 2.5 seconds suggests speaker change)
+    if (timeSinceLastSpeech > 2500) {
+      shouldSwitchSpeaker = true;
+      switchReasons.push(`long_pause_${Math.round(timeSinceLastSpeech/1000)}s`);
+    }
+
+    // Factor 2: Audio level change (significant change might indicate different speaker)
+    if (this.speechHistory.length >= 3) {
+      const recentAudioLevels = this.speechHistory.slice(-3).map(h => h.audioLevel);
+      const avgRecentLevel = recentAudioLevels.reduce((a, b) => a + b, 0) / recentAudioLevels.length;
+      const levelChange = Math.abs(currentAudioLevel - avgRecentLevel);
+
+      if (levelChange > 15 && timeSinceLastSpeech > 1500) {
+        shouldSwitchSpeaker = true;
+        switchReasons.push(`audio_level_change_${Math.round(levelChange)}`);
       }
     }
-    
+
+    // Factor 3: Conversation turn patterns
+    if (this.speechHistory.length >= 2) {
+      const lastUtterance = this.speechHistory[this.speechHistory.length - 2];
+      const lastWasQuestion = this.isQuestion(lastUtterance.text);
+
+      // Question-answer pattern suggests speaker change
+      if (lastWasQuestion && !isQuestion && timeSinceLastSpeech > 800) {
+        shouldSwitchSpeaker = true;
+        switchReasons.push('question_answer_pattern');
+      }
+
+      // New question after statement might be different speaker
+      if (!lastWasQuestion && isQuestion && timeSinceLastSpeech > 1200) {
+        shouldSwitchSpeaker = true;
+        switchReasons.push('new_question_pattern');
+      }
+    }
+
+    // Factor 4: Speech pattern changes
+    if (this.speechHistory.length >= 4) {
+      const recentSpeechRates = this.speechHistory.slice(-4).map(h => {
+        const words = h.text.split(' ').length;
+        return words / (h.text.length / 100);
+      });
+      const avgRecentRate = recentSpeechRates.reduce((a, b) => a + b, 0) / recentSpeechRates.length;
+      const rateChange = Math.abs(speechRate - avgRecentRate);
+
+      if (rateChange > 1.5 && timeSinceLastSpeech > 1800) {
+        shouldSwitchSpeaker = true;
+        switchReasons.push(`speech_rate_change_${Math.round(rateChange * 10)/10}`);
+      }
+    }
+
+    // Factor 5: Prevent too frequent switching (minimum consistency)
+    if (shouldSwitchSpeaker && this.speakerConsistencyCounter < 2 && timeSinceLastSpeech < 3000) {
+      shouldSwitchSpeaker = false;
+      switchReasons = ['prevented_rapid_switch'];
+    }
+
+    // Apply speaker switch decision
+    if (shouldSwitchSpeaker) {
+      this.lastSpeakerId = this.lastSpeakerId === 'Speaker 1' ? 'Speaker 2' : 'Speaker 1';
+      this.speakerConsistencyCounter = 0;
+
+      console.log(`🎤 Speaker switched to ${this.lastSpeakerId}`, {
+        reasons: switchReasons,
+        pause: `${Math.round(timeSinceLastSpeech/1000)}s`,
+        audioLevel: Math.round(currentAudioLevel),
+        isQuestion
+      });
+    } else {
+      this.speakerConsistencyCounter++;
+    }
+
+    // Update voice pattern for current speaker
+    this.updateVoicePattern(this.lastSpeakerId, {
+      textLength,
+      speechRate,
+      audioLevel: currentAudioLevel,
+      isQuestion
+    });
+
     this.lastSpeechTime = currentTime;
     return this.lastSpeakerId;
+  }
+
+  // Update voice pattern profile for speaker
+  private updateVoicePattern(speakerId: string, characteristics: {
+    textLength: number;
+    speechRate: number;
+    audioLevel: number;
+    isQuestion: boolean;
+  }): void {
+    if (!this.voicePatterns.has(speakerId)) {
+      this.voicePatterns.set(speakerId, {
+        avgPitch: 0,
+        avgEnergy: characteristics.audioLevel,
+        speechRate: characteristics.speechRate,
+        avgLength: characteristics.textLength
+      });
+    } else {
+      const pattern = this.voicePatterns.get(speakerId)!;
+      // Exponential moving average for pattern learning
+      pattern.avgEnergy = pattern.avgEnergy * 0.7 + characteristics.audioLevel * 0.3;
+      pattern.speechRate = pattern.speechRate * 0.7 + characteristics.speechRate * 0.3;
+      pattern.avgLength = pattern.avgLength * 0.7 + characteristics.textLength * 0.3;
+    }
   }
 }

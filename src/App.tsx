@@ -31,6 +31,7 @@ function AppContent() {
     recordingState,
     toggleRecording,
     transcript,
+    interimText,
     summaries,
     qaList,
     translations,
@@ -282,7 +283,7 @@ function AppContent() {
                 </div>
 
                 <div className="flex-1 overflow-hidden">
-                  {activePanel === 'transcript' && <TranscriptView segments={transcript} />}
+                  {activePanel === 'transcript' && <TranscriptView segments={transcript} interimText={interimText} />}
                   {activePanel === 'summaries' && <SummariesView summaries={summaries} />}
                   {activePanel === 'qa' && <QAView qaList={qaList} />}
                   {activePanel === 'translation' && (

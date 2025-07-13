@@ -23,8 +23,8 @@ export function QAView({ qaList }: QAViewProps) {
   return (
     <Card className="flex-1 overflow-hidden">
       <CardContent className="p-0">
-        <ScrollArea ref={scrollAreaRef} className="h-[calc(100vh-12rem)] w-full">
-          <div className="p-3 space-y-4">
+        <ScrollArea ref={scrollAreaRef} className="h-[calc(100vh-var(--control-bar-height,140px)-120px)] sm:h-[calc(100vh-12rem)] w-full">
+          <div className="p-3 pb-6 space-y-4">{/* Added pb-6 for bottom padding */}
             {qaList.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
                 No questions yet. Use the message field to ask questions about the conversation.
