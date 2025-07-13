@@ -5,6 +5,7 @@ import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
 export class AzureSpeechService {
   private config: AzureSTTConfig;
   private onSegmentReceived: (segment: TranscriptSegment) => void;
+  private onAudioLevel?: (level: number) => void;
   private recognizer: speechsdk.SpeechRecognizer | null = null;
   private conversationTranscriber: speechsdk.ConversationTranscriber | null = null;
   private isListening: boolean = false;
@@ -12,13 +13,20 @@ export class AzureSpeechService {
   private tokenExpiry: number | null = null;
   private useSpeakerDiarization: boolean = true; // Enable speaker diarization by default
   private simulateSpeakers: boolean = true; // Simulate multiple speakers when real diarization isn't available
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private dataArray: Uint8Array | null = null;
+  private animationFrameId: number | null = null;
+  private microphoneStream: MediaStream | null = null;
 
   constructor(
     config: AzureSTTConfig,
-    onSegmentReceived: (segment: TranscriptSegment) => void
+    onSegmentReceived: (segment: TranscriptSegment) => void,
+    onAudioLevel?: (level: number) => void
   ) {
     this.config = config;
     this.onSegmentReceived = onSegmentReceived;
+    this.onAudioLevel = onAudioLevel;
   }
 
   // Check if the service configuration is valid and get an auth token
@@ -76,8 +84,18 @@ export class AzureSpeechService {
     //   speechConfig.endpointId = this.config.endpoint;
     // }
 
-    // Always set a default language for now
-    speechConfig.speechRecognitionLanguage = 'en-US';
+    // Set language or enable language detection
+    if (this.config.enableLanguageDetection &&
+        this.config.candidateLanguages &&
+        this.config.candidateLanguages.length > 1) {
+      console.log('Language detection enabled with candidates:', this.config.candidateLanguages);
+      // Don't set a specific language when using language detection
+    } else {
+      // Use the first candidate language or default to English
+      const language = this.config.candidateLanguages?.[0] || 'en-US';
+      speechConfig.speechRecognitionLanguage = language;
+      console.log('Using fixed language:', language);
+    }
 
     // Enable speaker diarization
     speechConfig.setProperty(
@@ -89,7 +107,7 @@ export class AzureSpeechService {
   }
 
   // Start speech recognition using Azure Speech Service
-  async startRecognition(audioSource: 'microphone' | 'system'): Promise<void> {
+  async startRecognition(audioSource: 'microphone' | 'system', deviceId?: string): Promise<void> {
     if (this.isListening) {
       return;
     }
@@ -104,18 +122,48 @@ export class AzureSpeechService {
       const authToken = await this.getAuthToken();
 
       const speechConfig = this.createSpeechConfig();
-      const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
 
-      // Create standard recognizer (disable language detection temporarily)
-      console.log('Using standard recognition with language:', speechConfig.speechRecognitionLanguage);
-      this.recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
+      // Set up audio level monitoring BEFORE creating speech recognizer
+      // to avoid microphone access conflicts
+      if (this.onAudioLevel) {
+        await this.setupAudioLevelMonitoring(deviceId);
+      }
 
-      // TODO: Re-enable language detection once basic functionality is working
-      // if (this.config.enableLanguageDetection &&
-      //     this.config.candidateLanguages?.length &&
-      //     this.config.candidateLanguages.length > 0) {
-      //   // Language detection logic will be re-enabled later
-      // }
+      // Use the shared microphone stream for Azure Speech SDK if available
+      let audioConfig;
+      if (this.microphoneStream) {
+        // Create audio config from the existing stream
+        audioConfig = speechsdk.AudioConfig.fromStreamInput(this.microphoneStream);
+      } else {
+        // Fallback to default microphone
+        audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
+      }
+
+      // Create recognizer with language detection if enabled
+      if (this.config.enableLanguageDetection &&
+          this.config.candidateLanguages &&
+          this.config.candidateLanguages.length > 1) {
+
+        console.log('Creating recognizer with language detection for languages:', this.config.candidateLanguages);
+
+        // Create language detection configuration
+        const autoDetectSourceLanguageConfig = speechsdk.AutoDetectSourceLanguageConfig.fromLanguages(
+          this.config.candidateLanguages
+        );
+
+        // Create recognizer with auto-detect configuration
+        this.recognizer = speechsdk.SpeechRecognizer.FromConfig(
+          speechConfig,
+          autoDetectSourceLanguageConfig,
+          audioConfig
+        );
+
+        console.log('Language detection recognizer created successfully');
+      } else {
+        // Create standard recognizer
+        console.log('Using standard recognition with language:', speechConfig.speechRecognitionLanguage);
+        this.recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
+      }
 
       // Event handlers
       this.recognizer.recognizing = (sender, e) => {
@@ -130,13 +178,26 @@ export class AzureSpeechService {
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech && e.result.text.trim()) {
           const speakerId = this.simulateSpeakers && Math.random() > 0.5 ? 'Speaker 1' : 'User';
 
+          // Extract detected language if available
+          let detectedLanguage = 'unknown';
+          if (this.config.enableLanguageDetection) {
+            try {
+              const detectionResult = speechsdk.AutoDetectSourceLanguageResult.fromResult(e.result);
+              detectedLanguage = detectionResult.language || 'unknown';
+              console.log('Detected language:', detectedLanguage);
+            } catch (error) {
+              console.log('Could not extract language detection result:', error);
+            }
+          }
+
           this.onSegmentReceived({
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
             text: e.result.text,
             timestamp: Date.now(),
             confidence: 0.9,
             speakerId: speakerId,
-            isQuestion: this.isQuestion(e.result.text.trim())
+            isQuestion: this.isQuestion(e.result.text.trim()),
+            detectedLanguage: detectedLanguage !== 'unknown' ? detectedLanguage : undefined
           });
         }
       };
@@ -188,6 +249,29 @@ export class AzureSpeechService {
     // Set listening to false first to prevent auto-restart
     this.isListening = false;
 
+    // Stop audio level monitoring
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
+    if (this.audioContext) {
+      try {
+        await this.audioContext.close();
+        this.audioContext = null;
+        this.analyser = null;
+        this.dataArray = null;
+      } catch (error) {
+        console.error('Error closing audio context:', error);
+      }
+    }
+
+    // Stop microphone stream
+    if (this.microphoneStream) {
+      this.microphoneStream.getTracks().forEach(track => track.stop());
+      this.microphoneStream = null;
+    }
+
     if (this.conversationTranscriber) {
       try {
         // Stop conversation transcription
@@ -233,6 +317,85 @@ export class AzureSpeechService {
         console.log('Azure Speech Recognition stopped and cleaned up');
       }
     }
+  }
+
+  // Set up audio level monitoring
+  private async setupAudioLevelMonitoring(deviceId?: string): Promise<void> {
+    try {
+      console.log('Setting up audio level monitoring...');
+
+      // Get microphone access if we don't have it already
+      if (!this.microphoneStream) {
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            ...(deviceId && { deviceId: { exact: deviceId } })
+          }
+        };
+
+        this.microphoneStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Microphone access granted', deviceId ? `for device: ${deviceId}` : '');
+      }
+
+      // Create audio context and analyser
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024; // Increased for better analysis
+      this.analyser.smoothingTimeConstant = 0.8;
+
+      const bufferLength = this.analyser.frequencyBinCount;
+      this.dataArray = new Uint8Array(bufferLength);
+
+      // Connect stream to analyser
+      const source = this.audioContext.createMediaStreamSource(this.microphoneStream);
+      source.connect(this.analyser);
+
+      console.log('Audio context and analyser set up successfully');
+
+      // Start monitoring
+      this.startAudioLevelMonitoring();
+    } catch (error) {
+      console.error('Error setting up audio level monitoring:', error);
+    }
+  }
+
+  // Start audio level monitoring loop
+  private startAudioLevelMonitoring(): void {
+    const updateLevel = () => {
+      if (!this.analyser || !this.dataArray || !this.onAudioLevel) {
+        console.log('Audio level monitoring stopped - missing components');
+        return;
+      }
+
+      this.analyser.getByteFrequencyData(this.dataArray);
+
+      // Calculate RMS (Root Mean Square) for better audio level representation
+      let sum = 0;
+      for (let i = 0; i < this.dataArray.length; i++) {
+        sum += this.dataArray[i] * this.dataArray[i];
+      }
+      const rms = Math.sqrt(sum / this.dataArray.length);
+
+      // Convert to percentage (0-100) with better scaling
+      const level = Math.min(100, (rms / 128) * 100);
+
+      // Debug logging
+      if (level > 1) {
+        console.log('Audio level detected:', level.toFixed(2));
+      }
+
+      // Call the level callback
+      this.onAudioLevel(level);
+
+      // Continue monitoring if still listening
+      if (this.isListening) {
+        this.animationFrameId = requestAnimationFrame(updateLevel);
+      }
+    };
+
+    updateLevel();
   }
 
   // Update service configuration

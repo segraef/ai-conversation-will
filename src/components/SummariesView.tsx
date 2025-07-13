@@ -31,9 +31,9 @@ export function SummariesView({ summaries }: SummariesViewProps) {
     <Card className="flex-1 overflow-hidden">
       <CardContent className="p-0">
         <ScrollArea className="h-[calc(100vh-12rem)] w-full">
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-3">
             {summaries.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
+              <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
                 No summaries yet. Summaries will be generated during recording.
               </div>
             ) : (
@@ -47,17 +47,18 @@ export function SummariesView({ summaries }: SummariesViewProps) {
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="flex justify-between w-full p-4 h-auto"
+                      className="flex justify-between w-full p-3 h-auto text-sm"
                     >
                       <span>{formatTimeRange(summary.startTime, summary.endTime)}</span>
                       <CaretDown
+                        size={14}
                         className={`transition-transform ${openSummaryId === summary.id ? 'rotate-180' : ''}`}
                       />
                     </Button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="px-4 pb-4">
+                  <CollapsibleContent className="px-3 pb-3">
                     <div className="pt-2 border-t">
-                      <p>{summary.summary}</p>
+                      <p className="text-sm">{summary.summary}</p>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

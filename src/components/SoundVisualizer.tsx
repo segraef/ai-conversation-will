@@ -14,18 +14,23 @@ export function SoundVisualizer({ isRecording, audioLevel = 0 }: SoundVisualizer
       return;
     }
 
-    // Only update bars when there's actual audio input
-    if (audioLevel > 5) { // Only animate when there's meaningful audio input
+    // Debug logging
+    if (audioLevel > 0) {
+      console.log('SoundVisualizer received audio level:', audioLevel);
+    }
+
+    // Update bars when there's any audio input (lowered threshold)
+    if (audioLevel > 1) { // Lower threshold for better responsiveness
       setBars(prev => prev.map((_, index) => {
         // Create responsive bars based on actual audio level
-        const baseLevel = Math.max(0, (audioLevel - 5) / 95); // Normalize to 0-1
+        const baseLevel = Math.max(0, audioLevel / 100); // Normalize to 0-1
         const indexOffset = Math.abs(index - 6) / 6; // Distance from center
-        const barHeight = baseLevel * (1 - indexOffset * 0.5); // Center bars higher
-        return Math.max(0.02, Math.min(1, barHeight + Math.random() * 0.1));
+        const barHeight = baseLevel * (1 - indexOffset * 0.3); // Center bars higher, less variation
+        return Math.max(0.05, Math.min(1, barHeight + Math.random() * 0.2));
       }));
     } else {
       // Gradual fade to low state when no audio
-      setBars(prev => prev.map(height => Math.max(0.02, height * 0.9)));
+      setBars(prev => prev.map(height => Math.max(0.02, height * 0.85)));
     }
   }, [isRecording, audioLevel]);
 

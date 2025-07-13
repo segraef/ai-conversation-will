@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AppSettings } from '@/contexts/types';
+import { AppSettings, AudioDevice, SUPPORTED_LANGUAGES } from '@/contexts/types';
 import { Gear, Check, X, CloudCheck, Play } from '@phosphor-icons/react';
 import { useState, useEffect } from 'react';
 import { ConnectionStatus } from '@/contexts/types';
@@ -18,6 +18,8 @@ interface SettingsDialogProps {
   openaiStatus: ConnectionStatus;
   updateSTTStatus: (status: ConnectionStatus) => void;
   updateOpenAIStatus: (status: ConnectionStatus) => void;
+  audioDevices: AudioDevice[];
+  refreshAudioDevices: () => Promise<void>;
 }
 
 export function SettingsDialog({
@@ -26,7 +28,9 @@ export function SettingsDialog({
   sttStatus,
   openaiStatus,
   updateSTTStatus,
-  updateOpenAIStatus
+  updateOpenAIStatus,
+  audioDevices,
+  refreshAudioDevices
 }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -184,8 +188,9 @@ export function SettingsDialog({
         </DialogHeader>
 
         <Tabs defaultValue="general" className="mt-4">
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="translation">Translation</TabsTrigger>
             <TabsTrigger value="stt">Speech to Text</TabsTrigger>
             <TabsTrigger value="openai">OpenAI</TabsTrigger>
           </TabsList>
@@ -193,30 +198,45 @@ export function SettingsDialog({
           {/* General Settings */}
           <TabsContent value="general" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="audio-source">Audio Source</Label>
+              <Label htmlFor="audio-source">Audio Input Device</Label>
               <Select
-                value={localSettings.audio.source}
-                onValueChange={(value: 'microphone' | 'system') => {
+                value={localSettings.audio.selectedDeviceId || 'default'}
+                onValueChange={(value) => {
                   setLocalSettings({
                     ...localSettings,
                     audio: {
                       ...localSettings.audio,
-                      source: value
+                      selectedDeviceId: value === 'default' ? undefined : value,
+                      source: value === 'default' ? 'default' : 'external'
                     }
                   });
                 }}
               >
                 <SelectTrigger id="audio-source">
-                  <SelectValue placeholder="Select audio source" />
+                  <SelectValue placeholder="Select audio input device" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="microphone">Microphone</SelectItem>
-                  <SelectItem value="system">System Audio (if supported)</SelectItem>
+                  <SelectItem value="default">Default Device</SelectItem>
+                  {audioDevices.map((device) => (
+                    <SelectItem key={device.deviceId} value={device.deviceId}>
+                      {device.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Note: System audio capture may be limited by browser capabilities.
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  Choose between your laptop's built-in microphone or external devices.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshAudioDevices}
+                  className="text-xs px-2 py-1 h-6"
+                >
+                  Refresh
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -244,6 +264,84 @@ export function SettingsDialog({
                 Interval for generating summary chunks from the transcript.
               </p>
             </div>
+          </TabsContent>
+
+          {/* Translation Settings */}
+          <TabsContent value="translation" className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="enable-translation"
+                  checked={localSettings.translation.enabled}
+                  onCheckedChange={(checked) => {
+                    setLocalSettings({
+                      ...localSettings,
+                      translation: {
+                        ...localSettings.translation,
+                        enabled: checked
+                      }
+                    });
+                  }}
+                />
+                <Label htmlFor="enable-translation">Enable Real-time Translation</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically translate speech into your selected language
+              </p>
+            </div>
+
+            {localSettings.translation.enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="target-language">Target Language</Label>
+                  <Select
+                    value={localSettings.translation.targetLanguage}
+                    onValueChange={(value) => {
+                      setLocalSettings({
+                        ...localSettings,
+                        translation: {
+                          ...localSettings.translation,
+                          targetLanguage: value
+                        }
+                      });
+                    }}
+                  >
+                    <SelectTrigger id="target-language">
+                      <SelectValue placeholder="Select target language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="show-original"
+                      checked={localSettings.translation.showOriginal}
+                      onCheckedChange={(checked) => {
+                        setLocalSettings({
+                          ...localSettings,
+                          translation: {
+                            ...localSettings.translation,
+                            showOriginal: checked
+                          }
+                        });
+                      }}
+                    />
+                    <Label htmlFor="show-original">Show Original Text</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Display both original and translated text in the translation view
+                  </p>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* Speech to Text Settings */}

@@ -23,8 +23,16 @@ export interface AppSettings {
 
   // Audio settings
   audio: {
-    source: 'microphone' | 'system';
+    source: 'default' | 'external'; // Updated to handle different mic inputs
     chunkIntervalMinutes: number;
+    selectedDeviceId?: string; // Store selected audio input device
+  };
+
+  // Translation settings
+  translation: {
+    enabled: boolean;
+    targetLanguage: string;
+    showOriginal: boolean; // Whether to show original text alongside translation
   };
 }
 
@@ -35,9 +43,9 @@ export const defaultSettings: AppSettings = {
     endpoint: '',
     subscriptionKey: '',
     region: '',
-    enableLanguageDetection: false,
-    candidateLanguages: ['en-US'],
-    continuousLanguageIdentification: false,
+    enableLanguageDetection: true,
+    candidateLanguages: ['en-US', 'de-DE'],
+    continuousLanguageIdentification: true,
   },
   openai: {
     endpoint: '',
@@ -45,8 +53,14 @@ export const defaultSettings: AppSettings = {
     deploymentName: 'gpt-35-turbo',
   },
   audio: {
-    source: 'microphone',
+    source: 'default',
     chunkIntervalMinutes: 5,
+    selectedDeviceId: undefined,
+  },
+  translation: {
+    enabled: false,
+    targetLanguage: 'es-ES', // Default to Spanish
+    showOriginal: true,
   },
 };
 
@@ -58,6 +72,7 @@ export interface TranscriptSegment {
   confidence: number;
   timestamp: number;
   isQuestion: boolean;
+  detectedLanguage?: string; // Language detected by auto-detection
 }
 
 // Summary chunk representing a summarized portion of the transcript
@@ -87,3 +102,51 @@ export interface RecordingState {
   startTime: number | null;
   duration: number;
 }
+
+// Audio device information
+export interface AudioDevice {
+  deviceId: string;
+  label: string;
+  kind: MediaDeviceKind;
+}
+
+// Translation segment representing translated text
+export interface TranslationSegment {
+  id: string;
+  originalText: string;
+  translatedText: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  timestamp: number;
+  confidence: number;
+  relatedTranscriptId: string;
+}
+
+// Analysis result representing text analysis insights
+export interface AnalysisResult {
+  id: string;
+  type: 'sentiment' | 'emotion' | 'topic' | 'keyword' | 'summary';
+  title: string;
+  content: string;
+  score?: number; // For sentiment/emotion scores
+  confidence: number;
+  timestamp: number;
+  relatedTranscriptIds: string[];
+  metadata?: Record<string, any>; // Additional analysis data
+}
+
+// Supported languages for translation
+export const SUPPORTED_LANGUAGES = [
+  { code: 'en-US', name: 'English (US)' },
+  { code: 'es-ES', name: 'Spanish' },
+  { code: 'fr-FR', name: 'French' },
+  { code: 'de-DE', name: 'German' },
+  { code: 'it-IT', name: 'Italian' },
+  { code: 'pt-BR', name: 'Portuguese (Brazil)' },
+  { code: 'ja-JP', name: 'Japanese' },
+  { code: 'ko-KR', name: 'Korean' },
+  { code: 'zh-CN', name: 'Chinese (Simplified)' },
+  { code: 'ar-SA', name: 'Arabic' },
+  { code: 'hi-IN', name: 'Hindi' },
+  { code: 'ru-RU', name: 'Russian' },
+] as const;

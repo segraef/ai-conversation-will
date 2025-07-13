@@ -5,6 +5,50 @@
   * {
     @apply border-border;
   }
+
+  html {
+    /* Prevent zoom on iOS */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    /* Ensure full height on mobile */
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+
+    /* iOS specific fixes */
+    -webkit-overflow-scrolling: touch;
+    touch-action: manipulation;
+  }
+
+  /* Safari iOS safe area support */
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Prevent input zoom on iOS */
+  input, textarea, select {
+    font-size: 16px;
+  }
+
+  @media (max-width: 640px) {
+    input, textarea, select {
+      font-size: 16px !important;
+      transform: translateZ(0); /* Force hardware acceleration */
+    }
+  }
+
+  /* Fix iOS Safari address bar height issues */
+  @supports (-webkit-appearance: none) {
+    .min-h-screen {
+      min-height: -webkit-fill-available;
+    }
+  }
 }
 
 :root {
@@ -14,27 +58,27 @@
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.015 240);
-  
+
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.015 240);
 
   /* Action colors */
   --primary: oklch(0.5 0.2 240);  /* Deep blue */
   --primary-foreground: oklch(1 0 0);
-  
+
   --secondary: oklch(0.93 0.03 240);
   --secondary-foreground: oklch(0.2 0.015 240);
-  
+
   --accent: oklch(0.55 0.25 280);  /* Purple */
   --accent-foreground: oklch(1 0 0);
-  
+
   --destructive: oklch(0.6 0.2 30);
   --destructive-foreground: oklch(1 0 0);
 
   /* Supporting UI colors */
   --muted: oklch(0.93 0.03 240);
   --muted-foreground: oklch(0.5 0.05 240);
-  
+
   --border: oklch(0.9 0.03 240);
   --input: oklch(0.9 0.03 240);
   --ring: oklch(0.5 0.2 240);
@@ -50,27 +94,27 @@
 
   --card: oklch(0.22 0.02 240);
   --card-foreground: oklch(0.95 0.015 240);
-  
+
   --popover: oklch(0.22 0.02 240);
   --popover-foreground: oklch(0.95 0.015 240);
 
   /* Action colors */
   --primary: oklch(0.55 0.2 240);  /* Lighter blue for dark mode */
   --primary-foreground: oklch(0.05 0.015 240);
-  
+
   --secondary: oklch(0.3 0.03 240);
   --secondary-foreground: oklch(0.95 0.015 240);
-  
+
   --accent: oklch(0.6 0.25 280);  /* Lighter purple for dark mode */
   --accent-foreground: oklch(0.05 0.015 240);
-  
+
   --destructive: oklch(0.65 0.2 30);
   --destructive-foreground: oklch(0.05 0.015 240);
 
   /* Supporting UI colors */
   --muted: oklch(0.25 0.03 240);
   --muted-foreground: oklch(0.7 0.05 240);
-  
+
   --border: oklch(0.3 0.03 240);
   --input: oklch(0.3 0.03 240);
   --ring: oklch(0.55 0.2 240);

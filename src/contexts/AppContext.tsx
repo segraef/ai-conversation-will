@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect, useRef, useMemo } from 'react';
 import { useKV } from '../hooks/useKV';
 import {
   AppSettings,
@@ -7,7 +7,10 @@ import {
   SummaryChunk,
   QAPair,
   ConnectionStatus,
-  RecordingState
+  RecordingState,
+  TranslationSegment,
+  AnalysisResult,
+  AudioDevice
 } from './types';
 import { AzureSpeechService } from '../services/AzureSpeechService';
 import { AzureOpenAIService } from '../services/AzureOpenAIService';
@@ -21,6 +24,11 @@ interface AppContextType {
   // Recording state
   recordingState: RecordingState;
   toggleRecording: () => void;
+  audioLevel: number;
+
+  // Audio devices
+  audioDevices: AudioDevice[];
+  refreshAudioDevices: () => Promise<void>;
 
   // Transcript data
   transcript: TranscriptSegment[];
@@ -36,6 +44,14 @@ interface AppContextType {
   addQA: (qa: QAPair) => void;
   askQuestion: (question: string) => Promise<void>;
 
+  // Translation data
+  translations: TranslationSegment[];
+  addTranslation: (translation: TranslationSegment) => void;
+
+  // Analysis data
+  analyses: AnalysisResult[];
+  addAnalysis: (analysis: AnalysisResult) => void;
+
   // Service connection status
   sttStatus: ConnectionStatus;
   openaiStatus: ConnectionStatus;
@@ -47,7 +63,28 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // Persist settings with useKV
-  const [settings, setSettings] = useKV<AppSettings>('ai-assistant-settings', defaultSettings);
+  const [rawSettings, setRawSettings] = useKV<AppSettings>('ai-assistant-settings', defaultSettings);
+
+  // Migrate settings to ensure all properties exist
+  const settings = useMemo(() => {
+    const migratedSettings = { ...defaultSettings, ...rawSettings };
+
+    // Ensure translation settings exist
+    if (!migratedSettings.translation) {
+      migratedSettings.translation = defaultSettings.translation;
+    }
+
+    // Ensure audio settings are properly migrated
+    if (!migratedSettings.audio.selectedDeviceId) {
+      migratedSettings.audio.selectedDeviceId = undefined;
+    }
+
+    return migratedSettings;
+  }, [rawSettings]);
+
+  const setSettings = (value: AppSettings | ((prev: AppSettings) => AppSettings)) => {
+    setRawSettings(value);
+  };
 
   // In-memory state
   const [recordingState, setRecordingState] = useState<RecordingState>({
@@ -59,6 +96,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [summaries, setSummaries] = useKV<SummaryChunk[]>('ai-assistant-summaries', []);
   const [qaList, setQAList] = useKV<QAPair[]>('ai-assistant-qa', []);
+  const [translations, setTranslations] = useKV<TranslationSegment[]>('ai-assistant-translations', []);
+  const [analyses, setAnalyses] = useKV<AnalysisResult[]>('ai-assistant-analyses', []);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([]);
 
   // Service connection statuses - persist in localStorage
   const [sttStatus, setSTTStatus] = useKV<ConnectionStatus>('ai-assistant-stt-status', 'disconnected');
@@ -74,6 +115,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Chunk timer
   const chunkTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Add translation
+  const addTranslation = (translation: TranslationSegment) => {
+    setTranslations((prev) => [...prev, translation]);
+  };
+
+  // Add analysis
+  const addAnalysis = (analysis: AnalysisResult) => {
+    setAnalyses((prev) => [...prev, analysis]);
+  };
+
+  // Refresh audio devices
+  const refreshAudioDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices
+        .filter(device => device.kind === 'audioinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Microphone ${device.deviceId.slice(0, 5)}`,
+          kind: device.kind as MediaDeviceKind
+        }));
+      setAudioDevices(audioInputs);
+    } catch (error) {
+      console.error('Error enumerating audio devices:', error);
+      toast.error('Failed to get audio devices');
+    }
+  };
+
+  // Initialize audio devices on mount
+  useEffect(() => {
+    refreshAudioDevices();
+  }, []);
+
   // Update settings
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings((current) => ({ ...current, ...newSettings }));
@@ -87,7 +161,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Create new instance
         speechServiceRef.current = new AzureSpeechService(
           settings.stt,
-          handleTranscriptSegment
+          handleTranscriptSegment,
+          (level) => setAudioLevel(level)
         );
       } else {
         // Update existing instance
@@ -168,6 +243,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         duration: recordingState.startTime ? Date.now() - recordingState.startTime : 0
       });
 
+      // Reset audio level
+      setAudioLevel(0);
+
       // Stop speech recognition
       if (speechServiceRef.current) {
         try {
@@ -208,7 +286,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Start speech recognition
       if (speechServiceRef.current) {
         try {
-          await speechServiceRef.current.startRecognition(settings.audio.source);
+          // Map audio source to speech service format
+          const audioSource = settings.audio.source === 'default' ? 'microphone' : 'microphone';
+          await speechServiceRef.current.startRecognition(
+            audioSource as 'microphone' | 'system',
+            settings.audio.selectedDeviceId
+          );
 
           // Set up chunk timer
           const chunkIntervalMs = settings.audio.chunkIntervalMinutes * 60 * 1000;
@@ -358,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (settings.stt.endpoint && settings.stt.subscriptionKey && settings.stt.region && sttStatus === 'disconnected') {
         setSTTStatus('connecting');
         try {
-          const tempService = new AzureSpeechService(settings.stt, () => {});
+          const tempService = new AzureSpeechService(settings.stt, () => {}, () => {});
           const isConnected = await tempService.checkConnection();
           setSTTStatus(isConnected ? 'connected' : 'error');
         } catch (error) {
@@ -405,6 +488,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateSettings,
         recordingState,
         toggleRecording,
+        audioLevel,
+        audioDevices,
+        refreshAudioDevices,
         transcript,
         addTranscriptSegment,
         clearTranscript,
@@ -413,6 +499,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         qaList,
         addQA,
         askQuestion,
+        translations,
+        addTranslation,
+        analyses,
+        addAnalysis,
         sttStatus,
         openaiStatus,
         updateSTTStatus,
